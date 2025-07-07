@@ -6,7 +6,8 @@
     "**/*.ts",
     "**/*.tsx",
     "tailwind.config.js",
-    "tailwind.config.js"
+    "tailwind.config.js",
+    "trigger.config.ts"
   ],
   "compilerOptions": {
     "types": ["@remix-run/node", "vite/client"],

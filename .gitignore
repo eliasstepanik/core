@@ -38,3 +38,7 @@ yarn-error.log*
 *.pem
 
 docker-compose.dev.yaml
+
+clickhouse/
+.vscode/
+registry/

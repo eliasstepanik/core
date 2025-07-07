@@ -60,6 +60,9 @@
     "MAGIC_LINK_SECRET",
     "ENABLE_EMAIL_LOGIN",
     "MODEL",
-    "OLLAMA_URL"
+    "OLLAMA_URL",
+    "TRIGGER_PROJECT_ID",
+    "TRIGGER_API_URL",
+    "TRIGGER_API_KEY"
   ]
 }

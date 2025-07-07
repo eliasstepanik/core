@@ -322,8 +322,9 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    --header-height: 44px;
   }
   body {
-    @apply bg-background text-foreground text-base;
+    @apply bg-background-2 text-foreground text-base;
   }
 }

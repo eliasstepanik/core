@@ -36,10 +36,12 @@ model User {
   referralSource String?
 
   personalAccessTokens PersonalAccessToken[]
-  InvitationCode       InvitationCode?       @relation(fields: [invitationCodeId], references: [id])
+  InvitationCode       InvitationCode?        @relation(fields: [invitationCodeId], references: [id])
   invitationCodeId     String?
   Space                Space[]
   Workspace            Workspace?
+  IntegrationAccount   IntegrationAccount[]
+  WebhookConfiguration WebhookConfiguration[]
 }
 
 model Workspace {
@@ -54,9 +56,13 @@ model Workspace {
 
   integrations String[]
 
-  userId         String?          @unique
-  user           User?            @relation(fields: [userId], references: [id])
-  IngestionQueue IngestionQueue[]
+  userId                  String?                   @unique
+  user                    User?                     @relation(fields: [userId], references: [id])
+  IngestionQueue          IngestionQueue[]
+  IntegrationAccount      IntegrationAccount[]
+  IntegrationDefinitionV2 IntegrationDefinitionV2[]
+  Activity                Activity[]
+  WebhookConfiguration    WebhookConfiguration[]
 }
 
 enum AuthenticationMethod {
@@ -191,6 +197,110 @@ model IngestionQueue {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   processedAt DateTime?
+}
+
+// For Integrations
+
+model Activity {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  text      String
+  // Used to link the task or activity to external apps
+  sourceURL String?
+
+  integrationAccount   IntegrationAccount? @relation(fields: [integrationAccountId], references: [id])
+  integrationAccountId String?
+
+  rejectionReason String?
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId String
+
+  WebhookDeliveryLog WebhookDeliveryLog[]
+}
+
+model IntegrationAccount {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  integrationConfiguration Json
+  accountId                String?
+  settings                 Json?
+  isActive                 Boolean @default(true)
+
+  integratedBy            User                    @relation(references: [id], fields: [integratedById])
+  integratedById          String
+  integrationDefinition   IntegrationDefinitionV2 @relation(references: [id], fields: [integrationDefinitionId])
+  integrationDefinitionId String
+  workspace               Workspace               @relation(references: [id], fields: [workspaceId])
+  workspaceId             String
+  Activity                Activity[]
+
+  @@unique([accountId, integrationDefinitionId, workspaceId])
+}
+
+model IntegrationDefinitionV2 {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  name        String  @unique
+  slug        String
+  description String
+  icon        String
+  config      Json?
+  spec        Json    @default("{}")
+  version     String?
+  url         String?
+
+  workspace   Workspace? @relation(references: [id], fields: [workspaceId])
+  workspaceId String?
+
+  IntegrationAccount IntegrationAccount[]
+}
+
+model WebhookConfiguration {
+  id          String     @id @default(cuid())
+  url         String
+  secret      String?
+  isActive    Boolean    @default(true)
+  eventTypes  String[] // List of event types this webhook is interested in, e.g. ["activity.created"]
+  user        User?      @relation(fields: [userId], references: [id])
+  userId      String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  WebhookDeliveryLog WebhookDeliveryLog[]
+}
+
+model WebhookDeliveryLog {
+  id                     String               @id @default(cuid())
+  webhookConfiguration   WebhookConfiguration @relation(fields: [webhookConfigurationId], references: [id])
+  webhookConfigurationId String
+
+  activity   Activity? @relation(fields: [activityId], references: [id])
+  activityId String?
+
+  status             WebhookDeliveryStatus
+  responseStatusCode Int?
+  responseBody       String?
+  error              String?
+  deliveredAt        DateTime              @default(now())
+
+  createdAt DateTime @default(now())
+}
+
+enum WebhookDeliveryStatus {
+  SUCCESS
+  FAILED
 }
 
 enum IngestionStatus {
