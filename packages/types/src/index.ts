@@ -3,3 +3,4 @@ export * from "./graph";
 export * from "./conversation-execution-step";
 export * from "./oauth";
 export * from "./integration";
+export * from "./user";

@@ -1,90 +1,87 @@
-import createLoadRemoteModule, {
-  createRequires,
-} from '@paciolan/remote-module-loader';
-import {
-  IntegrationAccount,
-  IntegrationDefinition,
-} from '@redplanethq/sol-sdk';
-import { logger, task } from '@trigger.dev/sdk/v3';
-import axios from 'axios';
+// import createLoadRemoteModule, {
+//   createRequires,
+// } from "@paciolan/remote-module-loader";
 
-const fetcher = async (url: string) => {
-  // Handle remote URLs with axios
-  const response = await axios.get(url);
+// import { logger, task } from "@trigger.dev/sdk/v3";
+// import axios from "axios";
 
-  return response.data;
-};
+// const fetcher = async (url: string) => {
+//   // Handle remote URLs with axios
+//   const response = await axios.get(url);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const loadRemoteModule = async (requires: any) =>
-  createLoadRemoteModule({ fetcher, requires });
+//   return response.data;
+// };
 
-function createAxiosInstance(token: string) {
-  const instance = axios.create();
+// // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// const loadRemoteModule = async (requires: any) =>
+//   createLoadRemoteModule({ fetcher, requires });
 
-  instance.interceptors.request.use((config) => {
-    // Check if URL starts with /api and doesn't have a full host
-    if (config.url?.startsWith('/api')) {
-      config.url = `${process.env.BACKEND_HOST}${config.url.replace('/api/', '/')}`;
-    }
+// function createAxiosInstance(token: string) {
+//   const instance = axios.create();
 
-    if (
-      config.url.includes(process.env.FRONTEND_HOST) ||
-      config.url.includes(process.env.BACKEND_HOST)
-    ) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+//   instance.interceptors.request.use((config) => {
+//     // Check if URL starts with /api and doesn't have a full host
+//     if (config.url?.startsWith("/api")) {
+//       config.url = `${process.env.BACKEND_HOST}${config.url.replace("/api/", "/")}`;
+//     }
 
-    return config;
-  });
+//     if (
+//       config.url.includes(process.env.FRONTEND_HOST) ||
+//       config.url.includes(process.env.BACKEND_HOST)
+//     ) {
+//       config.headers.Authorization = `Bearer ${token}`;
+//     }
 
-  return instance;
-}
+//     return config;
+//   });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getRequires = (axios: any) => createRequires({ axios });
+//   return instance;
+// }
 
-export const integrationRun = task({
-  id: 'integration-run',
-  run: async ({
-    pat,
-    eventBody,
-    integrationAccount,
-    integrationDefinition,
-    event,
-  }: {
-    pat: string;
-    // This is the event you want to pass to the integration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    event: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    eventBody?: any;
-    integrationDefinition: IntegrationDefinition;
-    integrationAccount?: IntegrationAccount;
-  }) => {
-    const remoteModuleLoad = await loadRemoteModule(
-      getRequires(createAxiosInstance(pat)),
-    );
+// // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// const getRequires = (axios: any) => createRequires({ axios });
 
-    logger.info(
-      `${integrationDefinition.url}/${integrationDefinition.version}/backend/index.js`,
-    );
+// export const integrationRun = task({
+//   id: "integration-run",
+//   run: async ({
+//     pat,
+//     eventBody,
+//     integrationAccount,
+//     integrationDefinition,
+//     event,
+//   }: {
+//     pat: string;
+//     // This is the event you want to pass to the integration
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     event: any;
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     eventBody?: any;
+//     integrationDefinition: IntegrationDefinition;
+//     integrationAccount?: IntegrationAccount;
+//   }) => {
+//     const remoteModuleLoad = await loadRemoteModule(
+//       getRequires(createAxiosInstance(pat)),
+//     );
 
-    const integrationFunction = await remoteModuleLoad(
-      `${integrationDefinition.url}/${integrationDefinition.version}/backend/index.js`,
-    );
+//     logger.info(
+//       `${integrationDefinition.url}/${integrationDefinition.version}/backend/index.js`,
+//     );
 
-    // const integrationFunction = await remoteModuleLoad(
-    //   `${integrationDefinition.url}`,
-    // );
+//     const integrationFunction = await remoteModuleLoad(
+//       `${integrationDefinition.url}/${integrationDefinition.version}/backend/index.js`,
+//     );
 
-    return await integrationFunction.run({
-      integrationAccount,
-      integrationDefinition,
-      event,
-      eventBody: {
-        ...(eventBody ? eventBody : {}),
-      },
-    });
-  },
-});
+//     // const integrationFunction = await remoteModuleLoad(
+//     //   `${integrationDefinition.url}`,
+//     // );
+
+//     return await integrationFunction.run({
+//       integrationAccount,
+//       integrationDefinition,
+//       event,
+//       eventBody: {
+//         ...(eventBody ? eventBody : {}),
+//       },
+//     });
+//   },
+// });

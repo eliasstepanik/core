@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { ActionStatusEnum, LLMMappings } from "@core/types";
+import { ActionStatusEnum } from "@core/types";
 import { logger } from "@trigger.dev/sdk/v3";
 import {
   type CoreMessage,

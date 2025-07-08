@@ -397,8 +397,6 @@ export function createActionApiRoute<
     maxContentLength,
   } = options;
 
-  console.log(options);
-
   async function loader({ request, params }: LoaderFunctionArgs) {
     if (corsStrategy !== "none" && request.method.toUpperCase() === "OPTIONS") {
       return apiCors(request, json({}));

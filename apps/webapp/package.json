@@ -8,7 +8,8 @@
     "dev": "node ./server.mjs",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "start": "remix-serve ./build/server/index.js",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "trigger:dev": "npx trigger.dev@latest dev"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
@@ -20,6 +21,7 @@
     "@core/database": "workspace:*",
     "@core/types": "workspace:*",
     "@mjackson/headers": "0.11.1",
+    "@modelcontextprotocol/sdk": "1.13.2",
     "@nichtsam/remix-auth-email-link": "3.0.0",
     "@opentelemetry/api": "1.9.0",
     "@prisma/client": "*",

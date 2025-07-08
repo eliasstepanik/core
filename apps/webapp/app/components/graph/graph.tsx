@@ -382,7 +382,6 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
 
       // Node click handler
       sigma.on("clickNode", (event) => {
-        console.log(event);
         const { node } = event;
         // resetHighlights();
         if (onNodeClick) {

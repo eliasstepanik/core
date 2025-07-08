@@ -32,6 +32,9 @@
     },
     "generate": {
       "dependsOn": [ "^generate" ]
+    },
+    "trigger:dev": {
+
     }
   },
   "globalDependencies": [ ".env" ],
