@@ -14,8 +14,108 @@ import { type CoreMessage } from "ai";
 
 import { type HistoryStep } from "./types";
 import axios from "axios";
+import nodeCrypto from "node:crypto";
+import { customAlphabet, nanoid } from "nanoid";
 
 const prisma = new PrismaClient();
+
+// Token generation utilities
+const tokenValueLength = 40;
+const tokenGenerator = customAlphabet(
+  "123456789abcdefghijkmnopqrstuvwxyz",
+  tokenValueLength,
+);
+const tokenPrefix = "rc_pat_";
+
+type CreatePersonalAccessTokenOptions = {
+  name: string;
+  userId: string;
+};
+
+// Helper functions for token management
+function createToken() {
+  return `${tokenPrefix}${tokenGenerator()}`;
+}
+
+function obfuscateToken(token: string) {
+  const withoutPrefix = token.replace(tokenPrefix, "");
+  const obfuscated = `${withoutPrefix.slice(0, 4)}${"•".repeat(18)}${withoutPrefix.slice(-4)}`;
+  return `${tokenPrefix}${obfuscated}`;
+}
+
+function encryptToken(value: string) {
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error("ENCRYPTION_KEY environment variable is required");
+  }
+
+  const nonce = nodeCrypto.randomBytes(12);
+  const cipher = nodeCrypto.createCipheriv("aes-256-gcm", encryptionKey, nonce);
+
+  let encrypted = cipher.update(value, "utf8", "hex");
+  encrypted += cipher.final("hex");
+
+  const tag = cipher.getAuthTag().toString("hex");
+
+  return {
+    nonce: nonce.toString("hex"),
+    ciphertext: encrypted,
+    tag,
+  };
+}
+
+function hashToken(token: string): string {
+  const hash = nodeCrypto.createHash("sha256");
+  hash.update(token);
+  return hash.digest("hex");
+}
+
+export async function getOrCreatePersonalAccessToken({
+  name,
+  userId,
+}: CreatePersonalAccessTokenOptions) {
+  // Try to find an existing, non-revoked token
+  const existing = await prisma.personalAccessToken.findFirst({
+    where: {
+      name,
+      userId,
+      revokedAt: null,
+    },
+  });
+
+  if (existing) {
+    // Do not return the unencrypted token if it already exists
+    return {
+      id: existing.id,
+      name: existing.name,
+      userId: existing.userId,
+      obfuscatedToken: existing.obfuscatedToken,
+      // token is not returned
+    };
+  }
+
+  // Create a new token
+  const token = createToken();
+  const encryptedToken = encryptToken(token);
+
+  const personalAccessToken = await prisma.personalAccessToken.create({
+    data: {
+      name,
+      userId,
+      encryptedToken,
+      obfuscatedToken: obfuscateToken(token),
+      hashedToken: hashToken(token),
+    },
+  });
+
+  return {
+    id: personalAccessToken.id,
+    name,
+    userId,
+    token,
+    obfuscatedToken: personalAccessToken.obfuscatedToken,
+  };
+}
 
 export interface InitChatPayload {
   conversationId: string;
@@ -61,8 +161,10 @@ export const init = async (payload: InitChatPayload) => {
     return { conversation, conversationHistory };
   }
 
-  const pat = await prisma.personalAccessToken.findFirst({
-    where: { userId: workspace.userId as string, name: "default" },
+  const randomKeyName = `chat_${nanoid(10)}`;
+  const pat = await getOrCreatePersonalAccessToken({
+    name: randomKeyName,
+    userId: workspace.userId as string,
   });
 
   const user = await prisma.user.findFirst({
@@ -74,6 +176,21 @@ export const init = async (payload: InitChatPayload) => {
       workspaceId: workspace.id,
     },
     include: { integrationDefinition: true },
+  });
+
+  // Set up axios interceptor for memory operations
+  axios.interceptors.request.use((config) => {
+    if (config.url?.startsWith("https://core::memory")) {
+      // Handle both search and ingest endpoints
+      if (config.url.includes("/search")) {
+        config.url = `${process.env.API_BASE_URL}/search`;
+      } else if (config.url.includes("/ingest")) {
+        config.url = `${process.env.API_BASE_URL}/ingest`;
+      }
+      config.headers.Authorization = `Bearer ${pat.token}`;
+    }
+
+    return config;
   });
 
   // Create MCP server configurations for each integration account
@@ -136,20 +253,6 @@ export const init = async (payload: InitChatPayload) => {
         integrationMCPServers[account.integrationDefinition.slug] =
           configuredMCP;
       }
-
-      axios.interceptors.request.use((config) => {
-        if (config.url?.startsWith("https://core::memory")) {
-          // Handle both search and ingest endpoints
-          if (config.url.includes("/search")) {
-            config.url = `${process.env.API_BASE_URL}/search`;
-          } else if (config.url.includes("/ingest")) {
-            config.url = `${process.env.API_BASE_URL}/ingest`;
-          }
-          config.headers.Authorization = `Bearer ${payload.pat}`;
-        }
-
-        return config;
-      });
     } catch (error) {
       logger.error(
         `Failed to configure MCP for ${account.integrationDefinition?.slug}:`,
@@ -161,7 +264,8 @@ export const init = async (payload: InitChatPayload) => {
   return {
     conversation,
     conversationHistory,
-    token: pat?.obfuscatedToken,
+    tokenId: pat.id,
+    token: pat.token,
     userId: user?.id,
     userName: user?.name,
   };
@@ -428,5 +532,13 @@ export async function getContinuationAgentConversationHistory(
       createdAt: "desc",
     },
     take: 1,
+  });
+}
+
+export async function deletePersonalAccessToken(tokenId: string) {
+  return await prisma.personalAccessToken.delete({
+    where: {
+      id: tokenId,
+    },
   });
 }

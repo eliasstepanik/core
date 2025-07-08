@@ -139,11 +139,12 @@ export async function* generate(
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  const ollamaUrl = process.env.OLLAMA_URL;
+  let ollamaUrl = process.env.OLLAMA_URL;
   model = model || process.env.MODEL;
 
   let modelInstance;
   let modelTemperature = Number(process.env.MODEL_TEMPERATURE) || 1;
+  ollamaUrl = undefined;
 
   // First check if Ollama URL exists and use Ollama
   if (ollamaUrl) {

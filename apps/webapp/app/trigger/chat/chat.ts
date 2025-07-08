@@ -8,6 +8,7 @@ import { MCP } from "../utils/mcp";
 import { type HistoryStep } from "../utils/types";
 import {
   createConversationHistoryForAgent,
+  deletePersonalAccessToken,
   getPreviousExecutionHistory,
   init,
   type RunChatPayload,
@@ -54,6 +55,7 @@ export const chat = task({
         },
         workpsaceId: init?.conversation.workspaceId,
         resources: otherData.resources,
+        todayDate: new Date().toISOString(),
       };
 
       // Extract user's goal from conversation history
@@ -123,8 +125,15 @@ export const chat = task({
       //   init.preferences,
       //   init.userName,
       // );
+
+      if (init?.tokenId) {
+        await deletePersonalAccessToken(init.tokenId);
+      }
     } catch (e) {
       await updateConversationStatus("failed", payload.conversationId);
+      if (init?.tokenId) {
+        await deletePersonalAccessToken(init.tokenId);
+      }
       throw new Error(e as string);
     }
   },

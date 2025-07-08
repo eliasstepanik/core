@@ -65,15 +65,19 @@ const searchMemoryTool = tool({
     properties: {
       query: {
         type: "string",
-        description: "The search query to find relevant information in memory",
+        description: "The search query in third person perspective",
       },
-      spaceId: {
+      validAt: {
         type: "string",
-        description: "Optional space ID to search within a specific space",
+        description: "The valid at time in ISO format",
       },
-      sessionId: {
+      startTime: {
         type: "string",
-        description: "Optional session ID to search within a specific session",
+        description: "The start time in ISO format",
+      },
+      endTime: {
+        type: "string",
+        description: "The end time in ISO format",
       },
     },
     required: ["query"],
@@ -86,34 +90,12 @@ const addMemoryTool = tool({
   parameters: jsonSchema({
     type: "object",
     properties: {
-      episodeBody: {
+      message: {
         type: "string",
         description: "The content/text to add to memory",
       },
-      referenceTime: {
-        type: "string",
-        description:
-          "ISO 8601 timestamp for when this information is relevant (defaults to current time)",
-      },
-      source: {
-        type: "string",
-        description:
-          "Source of the information (e.g., 'user', 'chat', 'system')",
-      },
-      spaceId: {
-        type: "string",
-        description: "Optional space ID to add memory to a specific space",
-      },
-      sessionId: {
-        type: "string",
-        description: "Optional session ID to associate with a specific session",
-      },
-      metadata: {
-        type: "object",
-        description: "Optional metadata object for additional context",
-      },
     },
-    required: ["episodeBody"],
+    required: ["message"],
     additionalProperties: false,
   }),
 });

@@ -2,15 +2,16 @@ import { UserTypeEnum } from "@core/types";
 
 import { auth, runs, tasks } from "@trigger.dev/sdk/v3";
 import { prisma } from "~/db.server";
-import { getOrCreatePersonalAccessToken } from "./personalAccessToken.server";
 import { createConversationTitle } from "~/trigger/conversation/create-conversation-title";
 
 import { z } from "zod";
+import { type ConversationHistory } from "@prisma/client";
 
 export const CreateConversationSchema = z.object({
   message: z.string(),
   title: z.string().optional(),
   conversationId: z.string().optional(),
+  userType: z.nativeEnum(UserTypeEnum).optional(),
 });
 
 export type CreateConversationDto = z.infer<typeof CreateConversationSchema>;
@@ -22,15 +23,13 @@ export async function createConversation(
   conversationData: CreateConversationDto,
 ) {
   const { title, conversationId, ...otherData } = conversationData;
-  // Ensure PAT exists for the user
-  await getOrCreatePersonalAccessToken({ name: "trigger", userId });
 
   if (conversationId) {
     // Add a new message to an existing conversation
     const conversationHistory = await prisma.conversationHistory.create({
       data: {
         ...otherData,
-        userType: UserTypeEnum.User,
+        userType: otherData.userType || UserTypeEnum.User,
         ...(userId && {
           user: {
             connect: { id: userId },
@@ -45,12 +44,13 @@ export async function createConversation(
       },
     });
 
-    // No context logic here
+    const context = await getConversationContext(conversationHistory.id);
     const handler = await tasks.trigger(
       "chat",
       {
         conversationHistoryId: conversationHistory.id,
         conversationId: conversationHistory.conversation.id,
+        context,
       },
       { tags: [conversationHistory.id, workspaceId, conversationId] },
     );
@@ -73,7 +73,7 @@ export async function createConversation(
       ConversationHistory: {
         create: {
           userId,
-          userType: UserTypeEnum.User,
+          userType: otherData.userType || UserTypeEnum.User,
           ...otherData,
         },
       },
@@ -84,6 +84,7 @@ export async function createConversation(
   });
 
   const conversationHistory = conversation.ConversationHistory[0];
+  const context = await getConversationContext(conversationHistory.id);
 
   // Trigger conversation title task
   await tasks.trigger<typeof createConversationTitle>(
@@ -100,6 +101,7 @@ export async function createConversation(
     {
       conversationHistoryId: conversationHistory.id,
       conversationId: conversation.id,
+      context,
     },
     { tags: [conversationHistory.id, workspaceId, conversation.id] },
   );
@@ -225,4 +227,43 @@ export async function stopConversation(
   }
 
   return await runs.cancel(run.id);
+}
+
+export async function getConversationContext(
+  conversationHistoryId: string,
+): Promise<{
+  previousHistory: ConversationHistory[];
+}> {
+  const conversationHistory = await prisma.conversationHistory.findUnique({
+    where: { id: conversationHistoryId },
+    include: { conversation: true },
+  });
+
+  if (!conversationHistory) {
+    return {
+      previousHistory: [],
+    };
+  }
+
+  // Get previous conversation history message and response
+  let previousHistory: ConversationHistory[] = [];
+
+  if (conversationHistory.conversationId) {
+    previousHistory = await prisma.conversationHistory.findMany({
+      where: {
+        conversationId: conversationHistory.conversationId,
+        id: {
+          not: conversationHistoryId,
+        },
+        deleted: null,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+  }
+
+  return {
+    previousHistory,
+  };
 }

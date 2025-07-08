@@ -45,8 +45,7 @@ import { createOllama } from "ollama-ai-provider";
 const DEFAULT_EPISODE_WINDOW = 5;
 
 export class KnowledgeGraphService {
-  async getEmbedding(text: string, useOpenAI = true) {
-    console.log(text, useOpenAI);
+  async getEmbedding(text: string, useOpenAI = false) {
     if (useOpenAI) {
       // Use OpenAI embedding model when explicitly requested
       const { embedding } = await embed({

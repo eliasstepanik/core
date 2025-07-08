@@ -1,3 +1,5 @@
+import { Spec } from "./oauth";
+
 export enum IntegrationPayloadEventType {
   /**
    * When a webhook is received, this event is triggered to identify which integration

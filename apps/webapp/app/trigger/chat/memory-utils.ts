@@ -4,12 +4,13 @@ import axios from "axios";
 // Memory API functions using axios interceptor
 export interface SearchMemoryParams {
   query: string;
-  spaceId?: string;
-  sessionId?: string;
+  validAt?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface AddMemoryParams {
-  episodeBody: string;
+  message: string;
   referenceTime?: string;
   source?: string;
   spaceId?: string;
@@ -32,8 +33,9 @@ export const addMemory = async (params: AddMemoryParams) => {
     // Set defaults for required fields
     const memoryInput = {
       ...params,
+      episodeBody: params.message,
       referenceTime: params.referenceTime || new Date().toISOString(),
-      source: params.source || "chat",
+      source: params.source || "CORE",
     };
 
     const response = await axios.post(
