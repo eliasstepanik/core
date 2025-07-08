@@ -1,8 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { type CoreMessage, embed } from "ai";
 import {
-  EpisodeType,
-  LLMModelEnum,
   type AddEpisodeParams,
   type EntityNode,
   type EpisodicNode,

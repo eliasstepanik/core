@@ -85,7 +85,7 @@ export async function authenticateApiKeyWithFailure(
 }
 
 export function isSecretApiKey(key: string) {
-  return key.startsWith("tr_");
+  return key.startsWith("rc_");
 }
 
 export function getApiKeyFromRequest(request: Request) {

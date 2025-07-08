@@ -60,7 +60,7 @@ model Conversation {
   workspace   Workspace? @relation(fields: [workspaceId], references: [id])
   workspaceId String?
 
-  status String @default("pending") // Can be "pending", "running", "completed", "failed", "need_attension"
+  status String @default("pending") // Can be "pending", "running", "completed", "failed", "need_attention"
 
   ConversationHistory ConversationHistory[]
 }
