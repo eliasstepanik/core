@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { ActionStatusEnum } from "@core/types";
-import { logger, metadata, task } from "@trigger.dev/sdk/v3";
-import { format } from "date-fns";
+import { metadata, task, queue } from "@trigger.dev/sdk";
 
 import { run } from "./chat-utils";
 import { MCP } from "../utils/mcp";
@@ -17,7 +15,10 @@ import {
   updateExecutionStep,
 } from "../utils/utils";
 
-const prisma = new PrismaClient();
+const chatQueue = queue({
+  name: "chat-queue",
+  concurrencyLimit: 10,
+});
 
 /**
  * Main chat task that orchestrates the agent workflow
@@ -26,10 +27,7 @@ const prisma = new PrismaClient();
 export const chat = task({
   id: "chat",
   maxDuration: 3000,
-  queue: {
-    name: "chat",
-    concurrencyLimit: 30,
-  },
+  queue: chatQueue,
   init,
   run: async (payload: RunChatPayload, { init }) => {
     await updateConversationStatus("running", payload.conversationId);
@@ -38,8 +36,6 @@ export const chat = task({
       let creditForChat = 0;
 
       const { previousHistory, ...otherData } = payload.context;
-
-      const isContinuation = payload.isContinuation || false;
 
       // Initialise mcp
       const mcp = new MCP();

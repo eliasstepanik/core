@@ -1,29 +1,19 @@
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "~/components/ui/resizable";
 import { parse } from "@conform-to/zod";
 import { json } from "@remix-run/node";
 
 import { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { Ingest } from "~/components/dashboard/ingest";
 import {
   type LoaderFunctionArgs,
   type ActionFunctionArgs,
 } from "@remix-run/server-runtime";
 import { requireUserId } from "~/services/session.server";
 import { addToQueue, IngestBodyRequest } from "~/lib/ingest.server";
-import { getNodeLinks } from "~/lib/neo4j.server";
 import { useTypedLoaderData } from "remix-typedjson";
 
-import { Search } from "~/components/dashboard";
 import { SearchBodyRequest } from "./search";
 import { SearchService } from "~/services/search.server";
 import { GraphVisualizationClient } from "~/components/graph/graph-client";
 
-// --- Only return userId in loader, fetch nodeLinks on client ---
 export async function action({ request }: ActionFunctionArgs) {
   const userId = await requireUserId(request);
   const formData = await request.formData();

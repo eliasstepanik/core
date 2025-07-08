@@ -11,7 +11,6 @@ import GraphologyGraph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import noverlap from "graphology-layout-noverlap";
 import colors from "tailwindcss/colors";
-import ForceSupervisor from "graphology-layout-force/worker";
 import type { GraphTriplet, IdValue, GraphNode } from "./type";
 import {
   createLabelColorMap,
@@ -142,7 +141,7 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
           nodeMap.set(triplet.source.id, {
             id: triplet.source.id,
             label: triplet.source.value,
-            size: 10,
+            size: 5,
             color: getNodeColor(triplet.source),
             x: width,
             y: height,
@@ -153,7 +152,7 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
           nodeMap.set(triplet.target.id, {
             id: triplet.target.id,
             label: triplet.target.value,
-            size: 10,
+            size: 5,
             color: getNodeColor(triplet.target),
             x: width,
             y: height,
@@ -298,10 +297,10 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
           graph.setNodeAttribute(node, "y", height);
         });
 
-        const layout = new ForceSupervisor(graph, {
-          isNodeFixed: (_, attr) => attr.highlighted,
-        });
-        layout.start();
+        // const layout = new ForceSupervisor(graph, {
+        //   isNodeFixed: (_, attr) => attr.highlighted,
+        // });
+        // layout.start();
 
         const settings = forceAtlas2.inferSettings(graph);
         forceAtlas2.assign(graph, {
@@ -309,7 +308,7 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
           settings: {
             ...settings,
             barnesHutOptimize: true,
-            strongGravityMode: true,
+            strongGravityMode: false,
             gravity: 0.05,
             scalingRatio: 10,
             slowDown: 5,
@@ -332,7 +331,7 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
         defaultEdgeColor: theme.link.stroke,
         defaultNodeColor: theme.node.fill,
         enableEdgeEvents: true,
-        minCameraRatio: 0.5,
+        minCameraRatio: 0.1,
         maxCameraRatio: 2,
       });
 

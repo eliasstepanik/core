@@ -1,4 +1,9 @@
 import { defineConfig } from "@trigger.dev/sdk/v3";
+import {
+  additionalPackages,
+  syncEnvVars,
+} from "@trigger.dev/build/extensions/core";
+import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 
 export default defineConfig({
   project: process.env.TRIGGER_PROJECT_ID as string,
@@ -19,4 +24,15 @@ export default defineConfig({
     },
   },
   dirs: ["./app/trigger"],
+  build: {
+    extensions: [
+      syncEnvVars(() => ({
+        DATABASE_URL: process.env.DATABASE_URL,
+        BACKEND_HOST: process.env.BACKEND_HOST,
+      })),
+      prismaExtension({
+        schema: "prisma/schema.prisma",
+      }),
+    ],
+  },
 });

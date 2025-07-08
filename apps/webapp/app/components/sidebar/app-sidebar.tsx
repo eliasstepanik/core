@@ -17,8 +17,8 @@ import Logo from "../logo/logo";
 const data = {
   navMain: [
     {
-      title: "Chat",
-      url: "/home/chat",
+      title: "Conversation",
+      url: "/home/conversation",
       icon: MessageSquare,
     },
     {

@@ -3,7 +3,7 @@ import { useActionData } from "@remix-run/react";
 import { type ActionFunctionArgs, json } from "@remix-run/node";
 import { useForm } from "@conform-to/react";
 import { getFieldsetConstraint, parse } from "@conform-to/zod";
-import { LoginPageLayout } from "~/components/layout/LoginPageLayout";
+import { LoginPageLayout } from "~/components/layout/login-page-layout";
 import {
   Card,
   CardContent,

@@ -1,5 +1,5 @@
 import { type GraphVisualizationProps } from "./graph-visualization";
-import { useState, useMemo, forwardRef, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export function GraphVisualizationClient(props: GraphVisualizationProps) {
   const [Component, setComponent] = useState<any>(undefined);

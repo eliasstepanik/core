@@ -267,3 +267,95 @@ export async function getConversationContext(
     previousHistory,
   };
 }
+
+export const getConversationAndHistory = async (
+  conversationId: string,
+  userId: string,
+) => {
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+    },
+    include: {
+      ConversationHistory: true,
+    },
+  });
+
+  return conversation;
+};
+
+export const GetConversationsListSchema = z.object({
+  page: z.string().optional().default("1"),
+  limit: z.string().optional().default("20"),
+  search: z.string().optional(),
+});
+
+export type GetConversationsListDto = z.infer<typeof GetConversationsListSchema>;
+
+export async function getConversationsList(
+  workspaceId: string,
+  userId: string,
+  params: GetConversationsListDto,
+) {
+  const page = parseInt(params.page);
+  const limit = parseInt(params.limit);
+  const skip = (page - 1) * limit;
+
+  const where = {
+    workspaceId,
+    userId,
+    deleted: null,
+    ...(params.search && {
+      OR: [
+        {
+          title: {
+            contains: params.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          ConversationHistory: {
+            some: {
+              message: {
+                contains: params.search,
+                mode: "insensitive" as const,
+              },
+            },
+          },
+        },
+      ],
+    }),
+  };
+
+  const [conversations, total] = await Promise.all([
+    prisma.conversation.findMany({
+      where,
+      include: {
+        ConversationHistory: {
+          take: 1,
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.conversation.count({ where }),
+  ]);
+
+  return {
+    conversations,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
+    },
+  };
+}

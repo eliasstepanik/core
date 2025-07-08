@@ -2,7 +2,7 @@ import { useLocation } from "@remix-run/react";
 
 const PAGE_TITLES: Record<string, string> = {
   "/home/dashboard": "Memory graph",
-  "/home/chat": "Chat",
+  "/home/conversation": "Conversation",
   "/home/integrations": "Integrations",
   "/home/activity": "Activity",
 };

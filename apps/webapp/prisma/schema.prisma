@@ -1,0 +1,378 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "debian-openssl-1.1.x"]
+  previewFeatures = ["tracing"]
+}
+
+model Activity {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  text      String
+  // Used to link the task or activity to external apps
+  sourceURL String?
+
+  integrationAccount   IntegrationAccount? @relation(fields: [integrationAccountId], references: [id])
+  integrationAccountId String?
+
+  rejectionReason String?
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId String
+
+  WebhookDeliveryLog WebhookDeliveryLog[]
+
+  ConversationHistory ConversationHistory[]
+}
+
+model AuthorizationCode {
+  id String @id @default(cuid())
+
+  code String @unique
+
+  personalAccessToken   PersonalAccessToken? @relation(fields: [personalAccessTokenId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  personalAccessTokenId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  unread Boolean @default(false)
+
+  title  String?
+  user   User    @relation(fields: [userId], references: [id])
+  userId String
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
+
+  status String @default("pending") // Can be "pending", "running", "completed", "failed", "need_attention"
+
+  ConversationHistory ConversationHistory[]
+}
+
+model ConversationExecutionStep {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  thought String
+  message String
+
+  actionId     String?
+  actionOutput String?
+  actionInput  String?
+  actionStatus String?
+
+  metadata Json? @default("{}")
+
+  conversationHistory   ConversationHistory @relation(fields: [conversationHistoryId], references: [id])
+  conversationHistoryId String
+}
+
+model ConversationHistory {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  message  String
+  userType UserType
+
+  activity   Activity? @relation(fields: [activityId], references: [id])
+  activityId String?
+
+  context Json?
+
+  thoughts Json?
+  user     User?   @relation(fields: [userId], references: [id])
+  userId   String?
+
+  conversation              Conversation                @relation(fields: [conversationId], references: [id])
+  conversationId            String
+  ConversationExecutionStep ConversationExecutionStep[]
+}
+
+model Entity {
+  id       String @id @default(cuid())
+  name     String @unique // e.g., "User", "Issue", "Task", "Automation"
+  metadata Json // Store field definitions and their types
+
+  // Relations
+  spaceEntities SpaceEntity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model IngestionQueue {
+  id String @id @default(cuid())
+
+  // Relations
+  space   Space?  @relation(fields: [spaceId], references: [id])
+  spaceId String?
+
+  // Queue metadata
+  data     Json // The actual data to be processed
+  output   Json? // The processed output data
+  status   IngestionStatus
+  priority Int             @default(0)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  // Error handling
+  error      String?
+  retryCount Int     @default(0)
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
+}
+
+model IntegrationAccount {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  integrationConfiguration Json
+  accountId                String?
+  settings                 Json?
+  isActive                 Boolean @default(true)
+
+  integratedBy            User                    @relation(references: [id], fields: [integratedById])
+  integratedById          String
+  integrationDefinition   IntegrationDefinitionV2 @relation(references: [id], fields: [integrationDefinitionId])
+  integrationDefinitionId String
+  workspace               Workspace               @relation(references: [id], fields: [workspaceId])
+  workspaceId             String
+  Activity                Activity[]
+
+  @@unique([accountId, integrationDefinitionId, workspaceId])
+}
+
+model IntegrationDefinitionV2 {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  name        String  @unique
+  slug        String
+  description String
+  icon        String
+  config      Json?
+  spec        Json    @default("{}")
+  version     String?
+  url         String?
+
+  workspace   Workspace? @relation(references: [id], fields: [workspaceId])
+  workspaceId String?
+
+  IntegrationAccount IntegrationAccount[]
+}
+
+model InvitationCode {
+  id   String @id @default(cuid())
+  code String @unique
+
+  users User[]
+
+  createdAt DateTime @default(now())
+}
+
+model PersonalAccessToken {
+  id String @id @default(cuid())
+
+  /// If generated by the CLI this will be "cli", otherwise user-provided
+  name String
+
+  /// This is the token encrypted using the ENCRYPTION_KEY
+  encryptedToken Json
+
+  /// This is shown in the UI, with ********
+  obfuscatedToken String
+
+  /// This is used to find the token in the database
+  hashedToken String @unique
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  revokedAt      DateTime?
+  lastAccessedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorizationCodes AuthorizationCode[]
+}
+
+model Space {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  autoMode    Boolean @default(false)
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  // Space's enabled entities
+  enabledEntities SpaceEntity[]
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  IngestionQueue IngestionQueue[]
+}
+
+model SpaceEntity {
+  id String @id @default(cuid())
+
+  // Relations
+  space   Space  @relation(fields: [spaceId], references: [id])
+  spaceId String
+
+  entity   Entity @relation(fields: [entityId], references: [id])
+  entityId String
+
+  // Custom settings for this entity in this space
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([spaceId, entityId])
+}
+
+model User {
+  id    String @id @default(cuid())
+  email String @unique
+
+  authenticationMethod      AuthenticationMethod
+  authenticationProfile     Json?
+  authenticationExtraParams Json?
+  authIdentifier            String?              @unique
+
+  displayName String?
+  name        String?
+  avatarUrl   String?
+
+  memoryFilter String? // Adding memory filter instructions
+
+  admin Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  marketingEmails       Boolean @default(true)
+  confirmedBasicDetails Boolean @default(false)
+
+  referralSource String?
+
+  personalAccessTokens PersonalAccessToken[]
+  InvitationCode       InvitationCode?        @relation(fields: [invitationCodeId], references: [id])
+  invitationCodeId     String?
+  Space                Space[]
+  Workspace            Workspace?
+  IntegrationAccount   IntegrationAccount[]
+  WebhookConfiguration WebhookConfiguration[]
+  Conversation         Conversation[]
+  ConversationHistory  ConversationHistory[]
+}
+
+model WebhookConfiguration {
+  id          String     @id @default(cuid())
+  url         String
+  secret      String?
+  isActive    Boolean    @default(true)
+  eventTypes  String[] // List of event types this webhook is interested in, e.g. ["activity.created"]
+  user        User?      @relation(fields: [userId], references: [id])
+  userId      String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  WebhookDeliveryLog WebhookDeliveryLog[]
+}
+
+model WebhookDeliveryLog {
+  id                     String               @id @default(cuid())
+  webhookConfiguration   WebhookConfiguration @relation(fields: [webhookConfigurationId], references: [id])
+  webhookConfigurationId String
+
+  activity   Activity? @relation(fields: [activityId], references: [id])
+  activityId String?
+
+  status             WebhookDeliveryStatus
+  responseStatusCode Int?
+  responseBody       String?
+  error              String?
+  deliveredAt        DateTime              @default(now())
+
+  createdAt DateTime @default(now())
+}
+
+model Workspace {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  name String
+  slug String  @unique
+  icon String?
+
+  integrations String[]
+
+  userId                  String?                   @unique
+  user                    User?                     @relation(fields: [userId], references: [id])
+  IngestionQueue          IngestionQueue[]
+  IntegrationAccount      IntegrationAccount[]
+  IntegrationDefinitionV2 IntegrationDefinitionV2[]
+  Activity                Activity[]
+  WebhookConfiguration    WebhookConfiguration[]
+  Conversation            Conversation[]
+}
+
+enum AuthenticationMethod {
+  GOOGLE
+  MAGIC_LINK
+}
+
+enum IngestionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum UserType {
+  Agent
+  User
+  System
+}
+
+enum WebhookDeliveryStatus {
+  SUCCESS
+  FAILED
+}

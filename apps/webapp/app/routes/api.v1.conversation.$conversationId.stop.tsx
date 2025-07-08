@@ -22,6 +22,7 @@ const { action, loader } = createActionApiRoute(
       action: "oauth",
     },
     corsStrategy: "all",
+    method: "POST",
   },
   async ({ authentication, params }) => {
     const workspace = await getWorkspaceByUser(authentication.userId);

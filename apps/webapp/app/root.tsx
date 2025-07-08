@@ -31,7 +31,7 @@ import { usePostHog } from "./hooks/usePostHog";
 import {
   AppContainer,
   MainCenteredContainer,
-} from "./components/layout/AppLayout";
+} from "./components/layout/app-layout";
 import { RouteErrorDisplay } from "./components/ErrorDisplay";
 import { themeSessionResolver } from "./services/sessionStorage.server";
 import {

@@ -34,7 +34,8 @@
       "dependsOn": [ "^generate" ]
     },
     "trigger:dev": {
-
+      "interactive": true,
+      "cache": false
     }
   },
   "globalDependencies": [ ".env" ],
@@ -66,6 +67,8 @@
     "OLLAMA_URL",
     "TRIGGER_PROJECT_ID",
     "TRIGGER_API_URL",
-    "TRIGGER_API_KEY"
+    "TRIGGER_SECRET_KEY",
+    "EMBEDDING_MODEL",
+    "MODEL"
   ]
 }
