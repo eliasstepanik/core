@@ -7,6 +7,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/home/dashboard": "Memory graph",
   "/home/conversation": "Conversation",
   "/home/integrations": "Integrations",
+  "/home/integration": "Integrations",
   "/home/logs": "Logs",
 };
 
@@ -54,7 +55,7 @@ function NavigationBackForward() {
   const navigate = useNavigate();
 
   return (
-    <div className="mr-1 flex items-center">
+    <div className="mr-1 flex items-center gap-1">
       <Button
         variant="ghost"
         size="xs"

@@ -6,6 +6,8 @@ import { runIntegrationTrigger } from "~/services/integration.server";
 import { getIntegrationDefinitionWithId } from "~/services/integrationDefinition.server";
 import { logger } from "~/services/logger.service";
 import { getWorkspaceByUser } from "~/models/workspace.server";
+import { tasks } from "@trigger.dev/sdk";
+import { scheduler } from "~/trigger/integrations/scheduler";
 
 // Schema for creating an integration account with API key
 const IntegrationAccountBodySchema = z.object({
@@ -60,6 +62,10 @@ const { action, loader } = createHybridActionApiRoute(
           { status: 400 },
         );
       }
+
+      await tasks.trigger<typeof scheduler>("scheduler", {
+        integrationAccountId: setupResult?.id,
+      });
 
       return json({ success: true, setupResult });
     } catch (error) {

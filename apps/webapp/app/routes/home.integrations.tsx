@@ -39,10 +39,6 @@ export default function Integrations() {
 
   return (
     <div className="home flex h-full flex-col overflow-y-auto p-4 px-5">
-      <div className="space-y-1 text-base">
-        <p className="text-muted-foreground">Connect your tools and services</p>
-      </div>
-
       <IntegrationGrid
         integrations={integrationDefinitions}
         activeAccountIds={activeAccountIds}

@@ -12,9 +12,80 @@ import {
 import { type LogItem } from "~/hooks/use-logs";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
-import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { AlertCircle, ChevronDown, XCircle } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { ScrollManagedList } from "../virtualized-list";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "../ui/dialog";
+import { Button } from "../ui";
+
+// --- LogTextCollapse component ---
+function LogTextCollapse({ text }: { text?: string }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Show collapse if text is long (by word count)
+  const COLLAPSE_WORD_LIMIT = 30;
+
+  if (!text) {
+    return (
+      <div className="text-muted-foreground mb-2 text-xs italic">
+        No log details.
+      </div>
+    );
+  }
+
+  // Split by words for word count
+  const words = text.split(/\s+/);
+  const isLong = words.length > COLLAPSE_WORD_LIMIT;
+
+  let displayText: string;
+  if (isLong) {
+    displayText = words.slice(0, COLLAPSE_WORD_LIMIT).join(" ") + " ...";
+  } else {
+    displayText = text;
+  }
+
+  return (
+    <div className="mb-2">
+      <p
+        className={cn(
+          "whitespace-p-wrap pt-2 text-sm break-words",
+          isLong ? "max-h-16 overflow-hidden" : "",
+        )}
+        style={{ lineHeight: "1.5" }}
+      >
+        {displayText}
+      </p>
+      {isLong && (
+        <>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent className="max-w-2xl p-4">
+              <DialogHeader>
+                <DialogTitle className="flex w-full items-center justify-between">
+                  <span>Log Details</span>
+                </DialogTitle>
+              </DialogHeader>
+              <div className="max-h-[70vh] overflow-auto p-0">
+                <p
+                  className="px-3 py-2 text-sm break-words whitespace-pre-wrap"
+                  style={{ lineHeight: "1.5" }}
+                >
+                  {text}
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+    </div>
+  );
+}
 
 interface VirtualLogsListProps {
   logs: LogItem[];
@@ -88,7 +159,8 @@ function LogItemRenderer(
                       getStatusColor(log.status),
                     )}
                   >
-                    {log.status.toLowerCase()}
+                    {log.status.charAt(0).toUpperCase() +
+                      log.status.slice(1).toLowerCase()}
                   </Badge>
                 </div>
               </div>
@@ -97,9 +169,7 @@ function LogItemRenderer(
               </div>
             </div>
 
-            <div className="mb-2">
-              <p className="text-foreground text-sm">{log.ingestText}</p>
-            </div>
+            <LogTextCollapse text={log.ingestText} />
 
             <div className="text-muted-foreground flex items-center justify-between text-xs">
               <div className="flex items-center gap-4">
