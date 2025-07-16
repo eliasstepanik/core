@@ -81,21 +81,25 @@ const { action, loader } = createActionApiRoute(
           const integrationConfig =
             integrationAccount?.integrationConfiguration as any;
 
-          if (!integrationAccount || !integrationConfig) {
+          if (
+            !integrationAccount ||
+            !integrationConfig ||
+            !integrationConfig.mcp
+          ) {
             return null;
           }
 
           return {
             serverUrl,
             tokens: {
-              access_token: integrationConfig.access_token,
-              token_type: integrationConfig.token_type || "bearer",
-              expires_in: integrationConfig.expires_in || 3600,
-              refresh_token: integrationConfig.refresh_token,
-              scope: integrationConfig.scope || "read write",
+              access_token: integrationConfig.mcp.tokens.access_token,
+              token_type: integrationConfig.mcp.tokens.token_type || "bearer",
+              expires_in: integrationConfig.mcp.tokens.expires_in || 3600,
+              refresh_token: integrationConfig.mcp.tokens.refresh_token,
+              scope: integrationConfig.mcp.tokens.scope || "read write",
             },
-            expiresAt: integrationConfig.expiresAt
-              ? new Date(integrationConfig.expiresAt)
+            expiresAt: integrationConfig.mcp.tokens.expiresAt
+              ? new Date(integrationConfig.mcp.tokens.expiresAt)
               : new Date(Date.now() + 3600 * 1000),
           };
         },

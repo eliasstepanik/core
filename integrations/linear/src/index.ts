@@ -1,5 +1,5 @@
-import { handleSchedule } from 'schedule';
-import { integrationCreate } from './account-create';
+import { handleSchedule } from './schedule';
+import { integrationCreate, integrationCreateForMCP } from './account-create';
 
 import {
   IntegrationCLI,
@@ -11,7 +11,9 @@ import {
 export async function run(eventPayload: IntegrationEventPayload) {
   switch (eventPayload.event) {
     case IntegrationEventType.SETUP:
-      return await integrationCreate(eventPayload.eventBody, eventPayload.integrationDefinition);
+      return eventPayload.eventBody.mcp
+        ? await integrationCreateForMCP(eventPayload.eventBody)
+        : await integrationCreate(eventPayload.eventBody);
 
     case IntegrationEventType.SYNC:
       return await handleSchedule(eventPayload.config);

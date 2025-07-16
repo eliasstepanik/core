@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from 'axios';
-import { IntegrationAccount } from '@redplanethq/sol-sdk';
 
 interface LinearActivityCreateParams {
   url: string;
@@ -257,7 +256,7 @@ async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
 async function processIssueActivities(
   issues: any[],
   userId: string,
-  integrationAccount: IntegrationAccount,
+  integrationAccount: any,
   isCreator: boolean = false,
 ) {
   const activities = [];
@@ -426,11 +425,7 @@ async function processIssueActivities(
 /**
  * Process comment activities and create appropriate activity records
  */
-async function processCommentActivities(
-  comments: any[],
-  userId: string,
-  integrationAccount: IntegrationAccount,
-) {
+async function processCommentActivities(comments: any[], userId: string, integrationAccount: any) {
   const activities = [];
 
   for (const comment of comments) {
@@ -513,7 +508,7 @@ function getDefaultSyncTime(): string {
 /**
  * Main function to handle scheduled sync for Linear integration
  */
-export async function handleSchedule(integrationAccount: IntegrationAccount) {
+export async function handleSchedule(integrationAccount: any) {
   try {
     const integrationConfiguration = integrationAccount.integrationConfiguration as any;
 
@@ -594,6 +589,6 @@ export async function handleSchedule(integrationAccount: IntegrationAccount) {
 /**
  * The main handler for the scheduled sync event
  */
-export async function scheduleHandler(integrationAccount: IntegrationAccount) {
+export async function scheduleHandler(integrationAccount: any) {
   return handleSchedule(integrationAccount);
 }

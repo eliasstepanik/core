@@ -5,7 +5,7 @@ import { type LoaderFunctionArgs } from "@remix-run/server-runtime";
 import { requireUserId, requireWorkpace } from "~/services/session.server";
 import { getIntegrationDefinitions } from "~/services/integrationDefinition.server";
 import { getIntegrationAccounts } from "~/services/integrationAccount.server";
-import { IntegrationGrid } from "~/components/integrations/IntegrationGrid";
+import { IntegrationGrid } from "~/components/integrations/integration-grid";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
