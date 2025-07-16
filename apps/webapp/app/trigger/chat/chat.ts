@@ -37,9 +37,11 @@ export const chat = task({
 
       const { previousHistory, ...otherData } = payload.context;
 
+      const { agents = [] } = payload.context;
       // Initialise mcp
       const mcp = new MCP();
       await mcp.init();
+      await mcp.load(agents, { Authorization: `Bearer ${init?.token}` });
 
       // Prepare context with additional metadata
       const context = {

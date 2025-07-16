@@ -262,6 +262,7 @@ export async function* run(
   let guardLoop = 0;
 
   let tools = {
+    ...(await mcp.allTools()),
     "core--progress_update": progressUpdateTool,
     "core--search_memory": searchMemoryTool,
     "core--add_memory": addMemoryTool,
