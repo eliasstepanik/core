@@ -62,8 +62,7 @@ export function IngestionRuleSection({
         </div>
         <div className="flex justify-end">
           <Button
-            type="button"
-            variant="default"
+            variant="secondary"
             disabled={
               !ingestionRuleText.trim() ||
               ingestionRuleFetcher.state === "submitting"

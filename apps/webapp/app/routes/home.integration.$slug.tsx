@@ -138,9 +138,8 @@ export default function IntegrationDetail() {
   const hasMCPAuth = !!specData?.mcpAuth;
   const Component = getIcon(integration.icon as IconType);
 
-
   return (
-    <div className="p-4 px-5">
+    <div className="overflow-hidden p-4 px-5">
       <Section
         title={integration.name}
         description={integration.description}

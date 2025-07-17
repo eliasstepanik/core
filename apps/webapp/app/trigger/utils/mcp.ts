@@ -7,13 +7,11 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 export class MCP {
   private Client: any;
   private clients: Record<string, any> = {};
-  private StdioTransport: any;
 
   constructor() {}
 
   public async init() {
     this.Client = await MCP.importClient();
-    this.StdioTransport = await MCP.importStdioTransport();
   }
 
   private static async importClient() {
@@ -28,16 +26,11 @@ export class MCP {
       agents.map(async (agent) => {
         return await this.connectToServer(
           agent,
-          `${process.env.BACKEND_HOST}/api/v1/mcp/${agent}`,
+          `${process.env.API_BASE_URL}/api/v1/mcp/${agent}`,
           headers,
         );
       }),
     );
-  }
-
-  private static async importStdioTransport() {
-    const { StdioClientTransport } = await import("./stdio");
-    return StdioClientTransport;
   }
 
   async allTools(): Promise<ToolSet> {

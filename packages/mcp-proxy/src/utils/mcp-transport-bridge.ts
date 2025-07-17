@@ -22,24 +22,39 @@ export function createMCPTransportBridge(
   const logError = debug ? console.error : () => {};
 
   // Forward messages from client to server
-  clientTransport.onmessage = (message: any) => {
+  clientTransport.onmessage = (message: any, extra: any) => {
     console.log(JSON.stringify(message));
     log("[Client→Server]", message.method || message.id);
     onMessage?.("client-to-server", message);
 
-    serverTransport.send(message).catch((error) => {
+    // Forward any extra parameters (like resumption tokens) to the server
+    const serverOptions: any = {};
+    if (extra?.relatedRequestId) {
+      serverOptions.relatedRequestId = extra.relatedRequestId;
+    }
+
+    serverTransport.send(message, serverOptions).catch((error) => {
       logError("Error sending to server:", error);
       onError?.(error, "server");
     });
   };
 
   // Forward messages from server to client
-  serverTransport.onmessage = (message: any) => {
-    console.log(JSON.stringify(message));
+  serverTransport.onmessage = (message: any, extra: any) => {
+    console.log(JSON.stringify(message), JSON.stringify(extra));
     log("[Server→Client]", message.method || message.id);
     onMessage?.("server-to-client", message);
 
-    clientTransport.send(message).catch((error) => {
+    // Forward the server's session ID as resumption token to client
+    const clientOptions: any = {};
+    if (serverTransport.sessionId) {
+      clientOptions.resumptionToken = serverTransport.sessionId;
+    }
+    if (extra?.relatedRequestId) {
+      clientOptions.relatedRequestId = extra.relatedRequestId;
+    }
+
+    clientTransport.send(message, clientOptions).catch((error) => {
       logError("Error sending to client:", error);
       onError?.(error, "client");
     });
@@ -58,6 +73,7 @@ export function createMCPTransportBridge(
   serverTransport.onclose = () => {
     if (clientClosed) return;
     serverClosed = true;
+    console.log("closing");
     log("Server transport closed, closing client transport");
     clientTransport.close().catch((error) => {
       logError("Error closing client transport:", error);

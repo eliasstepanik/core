@@ -82,12 +82,17 @@ export function createMCPProxy(
           );
         }
 
+        // Extract session ID and last event ID from incoming request
+        const clientSessionId = request.headers.get("Mcp-Session-Id");
+        const lastEventId = request.headers.get("Last-Event-Id");
+
         // Create remote transport (connects to the MCP server) FIRST
         const serverTransport = await createRemoteTransport(
           credentials.serverUrl,
           credentials,
           config.redirectUrl,
-          config.transportStrategy || "sse-first"
+          config.transportStrategy || "sse-first",
+          { sessionId: clientSessionId, lastEventId } // Pass both session and event IDs
         );
 
         // Start server transport and wait for connection
@@ -146,17 +151,26 @@ export function createMCPProxy(
     serverUrl: string,
     credentials: StoredCredentials,
     redirectUrl: string,
-    transportStrategy: TransportStrategy = "sse-first"
+    transportStrategy: TransportStrategy = "sse-first",
+    clientHeaders?: { sessionId?: string | null; lastEventId?: string | null }
   ): Promise<SSEClientTransport | StreamableHTTPClientTransport> {
     // Create auth provider with stored credentials using common factory
     const authProvider = await createAuthProviderForProxy(serverUrl, credentials, redirectUrl);
 
     const url = new URL(serverUrl);
-    const headers = {
+    const headers: Record<string, string> = {
       Authorization: `Bearer ${credentials.tokens.access_token}`,
       "Content-Type": "application/json",
       ...config.headers,
     };
+
+    // Add session and event headers if provided
+    if (clientHeaders?.sessionId) {
+      headers["Mcp-Session-Id"] = clientHeaders.sessionId;
+    }
+    if (clientHeaders?.lastEventId) {
+      headers["Last-Event-Id"] = clientHeaders.lastEventId;
+    }
 
     // Create transport based on strategy (don't start yet)
     let transport: SSEClientTransport | StreamableHTTPClientTransport;
@@ -185,7 +199,6 @@ export function createMCPProxy(
         } catch (error) {
           console.warn("SSE transport failed, falling back to HTTP:", error);
           transport = new StreamableHTTPClientTransport(url, {
-            authProvider,
             requestInit: { headers },
           });
         }
