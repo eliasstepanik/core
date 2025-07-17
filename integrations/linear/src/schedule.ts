@@ -2,11 +2,8 @@
 import axios from 'axios';
 
 interface LinearActivityCreateParams {
-  url: string;
-  title: string;
-  sourceId: string;
+  text: string;
   sourceURL: string;
-  integrationAccountId: string;
 }
 
 interface LinearSettings {
@@ -15,95 +12,17 @@ interface LinearSettings {
   lastUserActionsSync?: string;
 }
 
-// Event types to track for user activities
-enum LinearEventType {
-  ISSUE_CREATED = 'issue_created',
-  ISSUE_UPDATED = 'issue_updated',
-  ISSUE_COMMENTED = 'issue_commented',
-  ISSUE_ASSIGNED = 'issue_assigned',
-  ISSUE_STATUS_CHANGED = 'issue_status_changed',
-  ISSUE_COMPLETED = 'issue_completed',
-  ISSUE_REOPENED = 'issue_reopened',
-  USER_MENTIONED = 'user_mentioned',
-  REACTION_ADDED = 'reaction_added',
-  ISSUE_SUBSCRIBED = 'issue_subscribed',
-  ISSUE_PRIORITY_CHANGED = 'issue_priority_changed',
-  PROJECT_UPDATED = 'project_updated',
-  CYCLE_UPDATED = 'cycle_updated',
-}
-
-// GraphQL fragments for reuse
-const USER_FRAGMENT = `
-  fragment UserFields on User {
-    id
-    name
-    displayName
-  }
-`;
-
-const ISSUE_FRAGMENT = `
-  fragment IssueFields on Issue {
-    id
-    identifier
-    title
-    description
-    url
-    createdAt
-    updatedAt
-    archivedAt
-    state {
-      id
-      name
-      type
-    }
-    team {
-      id
-      name
-    }
-    assignee {
-      ...UserFields
-    }
-    creator {
-      ...UserFields
-    }
-    subscribers {
-      nodes {
-        ...UserFields
-      }
-    }
-    priority
-  }
-  ${USER_FRAGMENT}
-`;
-
-const COMMENT_FRAGMENT = `
-  fragment CommentFields on Comment {
-    id
-    body
-    createdAt
-    updatedAt
-    user {
-      ...UserFields
-    }
-    issue {
-      ...IssueFields
-    }
-  }
-  ${USER_FRAGMENT}
-  ${ISSUE_FRAGMENT}
-`;
-
 /**
- * Creates an activity in the system based on Linear data
+ * Creates an activity message based on Linear data
  */
-async function createActivity(params: LinearActivityCreateParams) {
-  try {
-    // This would call the Sol SDK to create an activity
-    console.log(`Creating activity: ${params.title}`);
-    // Would be implemented via Sol SDK similar to GitHub integration
-  } catch (error) {
-    console.error('Error creating activity:', error);
-  }
+function createActivityMessage(params: LinearActivityCreateParams) {
+  return {
+    type: 'activity',
+    data: {
+      text: params.text,
+      sourceURL: params.sourceURL,
+    },
+  };
 }
 
 /**
@@ -127,14 +46,13 @@ async function fetchUserInfo(accessToken: string) {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: accessToken,
         },
       },
     );
 
     return response.data.data.viewer;
   } catch (error) {
-    console.error('Error fetching user info:', error);
     throw error;
   }
 }
@@ -145,7 +63,7 @@ async function fetchUserInfo(accessToken: string) {
 async function fetchRecentIssues(accessToken: string, lastSyncTime: string) {
   try {
     const query = `
-      query RecentIssues($lastSyncTime: DateTime) {
+      query RecentIssues($lastSyncTime: DateTimeOrDuration) {
         issues(
           filter: {
             updatedAt: { gt: $lastSyncTime }
@@ -154,7 +72,39 @@ async function fetchRecentIssues(accessToken: string, lastSyncTime: string) {
           orderBy: updatedAt
         ) {
           nodes {
-            ...IssueFields
+            id
+            identifier
+            title
+            url
+            createdAt
+            updatedAt
+            state {
+              id
+              name
+              type
+            }
+            team {
+              id
+              name
+            }
+            assignee {
+              id
+              name
+              displayName
+            }
+            creator {
+              id
+              name
+              displayName
+            }
+            subscribers {
+              nodes {
+                id
+                name
+                displayName
+              }
+            }
+            priority
             history {
               nodes {
                 id
@@ -175,7 +125,6 @@ async function fetchRecentIssues(accessToken: string, lastSyncTime: string) {
           }
         }
       }
-      ${ISSUE_FRAGMENT}
     `;
 
     const response = await axios.post(
@@ -189,14 +138,13 @@ async function fetchRecentIssues(accessToken: string, lastSyncTime: string) {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: accessToken,
         },
       },
     );
 
     return response.data.data.issues;
   } catch (error) {
-    console.error('Error fetching recent issues:', error);
     throw error;
   }
 }
@@ -207,7 +155,7 @@ async function fetchRecentIssues(accessToken: string, lastSyncTime: string) {
 async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
   try {
     const query = `
-      query RecentComments($lastSyncTime: DateTime) {
+      query RecentComments($lastSyncTime: DateTimeOrDuration) {
         comments(
           filter: {
             updatedAt: { gt: $lastSyncTime }
@@ -216,7 +164,38 @@ async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
           orderBy: updatedAt
         ) {
           nodes {
-            ...CommentFields
+            id
+            body
+            createdAt
+            updatedAt
+            user {
+              id
+              name
+              displayName
+            }
+            issue {
+              id
+              identifier
+              title
+              url
+              creator {
+                id
+                name
+                displayName
+              }
+              assignee {
+                id
+                name
+                displayName
+              }
+              subscribers {
+                nodes {
+                  id
+                  name
+                  displayName
+                }
+              }
+            }
           }
           pageInfo {
             hasNextPage
@@ -224,7 +203,6 @@ async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
           }
         }
       }
-      ${COMMENT_FRAGMENT}
     `;
 
     const response = await axios.post(
@@ -238,14 +216,13 @@ async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: accessToken,
         },
       },
     );
 
     return response.data.data.comments;
   } catch (error) {
-    console.error('Error fetching recent comments:', error);
     throw error;
   }
 }
@@ -253,12 +230,7 @@ async function fetchRecentComments(accessToken: string, lastSyncTime: string) {
 /**
  * Process issue activities and create appropriate activity records
  */
-async function processIssueActivities(
-  issues: any[],
-  userId: string,
-  integrationAccount: any,
-  isCreator: boolean = false,
-) {
+async function processIssueActivities(issues: any[], userId: string) {
   const activities = [];
 
   for (const issue of issues) {
@@ -271,161 +243,106 @@ async function processIssueActivities(
       const isSubscribed =
         issue.subscribers?.nodes?.some((subscriber: any) => subscriber.id === userId) || false;
 
-      if (!isAssignee && !isCreatedByUser && !isCreator && !isSubscribed) {
+      if (!isAssignee && !isCreatedByUser && !isSubscribed) {
         continue;
       }
 
-      // Process new issues created by the user
-      if (isCreatedByUser) {
-        activities.push({
-          url: `https://api.linear.app/issue/${issue.id}`,
-          title: `You created issue ${issue.identifier}: ${issue.title}`,
-          sourceId: `linear-issue-created-${issue.id}`,
-          sourceURL: issue.url,
-          integrationAccountId: integrationAccount.id,
-        });
-      }
+      // Process history to determine what actually changed
+      let activityCreated = false;
 
-      // Process issues assigned to the user (if not created by them)
-      if (isAssignee && !isCreatedByUser) {
-        activities.push({
-          url: `https://api.linear.app/issue/${issue.id}`,
-          title: `${issue.creator?.name || 'Someone'} assigned you issue ${issue.identifier}: ${issue.title}`,
-          sourceId: `linear-issue-assigned-${issue.id}`,
-          sourceURL: issue.url,
-          integrationAccountId: integrationAccount.id,
-        });
-      }
-
-      // Process issues where the user is subscribed (if not creator or assignee)
-      if (isSubscribed && !isCreatedByUser && !isAssignee) {
-        activities.push({
-          url: `https://api.linear.app/issue/${issue.id}`,
-          title: `Update on issue ${issue.identifier} you're subscribed to: ${issue.title}`,
-          sourceId: `linear-issue-subscribed-${issue.id}`,
-          sourceURL: issue.url,
-          integrationAccountId: integrationAccount.id,
-        });
-      }
-
-      // Process status changes
+      // Process assignment changes first (highest priority)
       if (issue.history && issue.history.nodes) {
         for (const historyItem of issue.history.nodes) {
+          if (historyItem.toAssigneeId && historyItem.fromAssigneeId !== historyItem.toAssigneeId) {
+            if (historyItem.toAssigneeId === userId) {
+              activities.push(
+                createActivityMessage({
+                  text: `${issue.identifier} (${issue.title}) Issue assigned to you`,
+                  sourceURL: issue.url,
+                }),
+              );
+              activityCreated = true;
+              break;
+            } else if (isCreatedByUser && historyItem.fromAssigneeId === userId) {
+              activities.push(
+                createActivityMessage({
+                  text: `${issue.identifier} (${issue.title}) Issue unassigned from you`,
+                  sourceURL: issue.url,
+                }),
+              );
+              activityCreated = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // If no assignment change, check for status changes
+      if (!activityCreated && issue.history && issue.history.nodes) {
+        for (const historyItem of issue.history.nodes) {
           if (historyItem.toStateId && historyItem.fromStateId !== historyItem.toStateId) {
-            // Skip if not relevant to the user
             if (!isAssignee && !isCreatedByUser && !isSubscribed) {
               continue;
             }
 
             const stateType = issue.state?.type;
-            let eventType = LinearEventType.ISSUE_STATUS_CHANGED;
             let statusText = `moved to ${issue.state?.name || 'a new status'}`;
 
-            // Special handling for completion and reopening
             if (stateType === 'completed') {
-              eventType = LinearEventType.ISSUE_COMPLETED;
-              statusText = 'marked as completed';
+              statusText = 'completed';
             } else if (stateType === 'canceled') {
               statusText = 'canceled';
-            } else if (historyItem.fromStateId && !historyItem.toStateId) {
-              eventType = LinearEventType.ISSUE_REOPENED;
-              statusText = 'reopened';
             }
 
             let title;
             if (isCreatedByUser || isAssignee) {
-              title = `You ${statusText} issue ${issue.identifier}: ${issue.title}`;
-            } else if (isSubscribed) {
-              title = `Issue ${issue.identifier} you're subscribed to was ${statusText}: ${issue.title}`;
+              title = `${issue.identifier} (${issue.title}) Issue ${statusText}`;
             } else {
-              title = `${issue.assignee?.name || 'Someone'} ${statusText} issue ${issue.identifier}: ${issue.title}`;
+              title = `${issue.identifier} (${issue.title}) Issue ${statusText}`;
             }
 
-            activities.push({
-              url: `https://api.linear.app/issue/${issue.id}`,
-              title,
-              sourceId: `linear-${eventType}-${issue.id}-${historyItem.id}`,
-              sourceURL: issue.url,
-              integrationAccountId: integrationAccount.id,
-            });
-          }
-
-          // Process priority changes
-          if (historyItem.toPriority && historyItem.fromPriority !== historyItem.toPriority) {
-            // Skip if not relevant to the user
-            if (!isAssignee && !isCreatedByUser && !isSubscribed) {
-              continue;
-            }
-
-            const priorityMap: Record<number, string> = {
-              0: 'No priority',
-              1: 'Urgent',
-              2: 'High',
-              3: 'Medium',
-              4: 'Low',
-            };
-
-            const newPriority = priorityMap[historyItem.toPriority] || 'a new priority';
-
-            let title;
-            if (isCreatedByUser) {
-              title = `You changed priority of issue ${issue.identifier} to ${newPriority}`;
-            } else if (isAssignee) {
-              title = `${issue.creator?.name || 'Someone'} changed priority of your assigned issue ${issue.identifier} to ${newPriority}`;
-            } else if (isSubscribed) {
-              title = `Priority of issue ${issue.identifier} you're subscribed to changed to ${newPriority}`;
-            } else {
-              title = `${issue.creator?.name || 'Someone'} changed priority of issue ${issue.identifier} to ${newPriority}`;
-            }
-
-            activities.push({
-              url: `https://api.linear.app/issue/${issue.id}`,
-              title,
-              sourceId: `linear-issue-priority-${issue.id}-${historyItem.id}`,
-              sourceURL: issue.url,
-              integrationAccountId: integrationAccount.id,
-            });
-          }
-
-          // Process assignment changes
-          if (historyItem.toAssigneeId && historyItem.fromAssigneeId !== historyItem.toAssigneeId) {
-            // Only relevant if user is newly assigned or is the creator
-            if (historyItem.toAssigneeId !== userId && !isCreatedByUser) {
-              continue;
-            }
-
-            const title =
-              historyItem.toAssigneeId === userId
-                ? `You were assigned issue ${issue.identifier}: ${issue.title}`
-                : `You assigned issue ${issue.identifier} to ${issue.assignee?.name || 'someone'}`;
-
-            activities.push({
-              url: `https://api.linear.app/issue/${issue.id}`,
-              title,
-              sourceId: `linear-issue-reassigned-${issue.id}-${historyItem.id}`,
-              sourceURL: issue.url,
-              integrationAccountId: integrationAccount.id,
-            });
+            activities.push(
+              createActivityMessage({
+                text: title,
+                sourceURL: issue.url,
+              }),
+            );
+            activityCreated = true;
+            break;
           }
         }
       }
+
+      // If no history changes, check if it's a new issue creation
+      if (!activityCreated && isCreatedByUser) {
+        // Only create activity if issue was created recently (within sync window)
+        const createdAt = new Date(issue.createdAt);
+        const updatedAt = new Date(issue.updatedAt);
+
+        // If created and updated times are very close, it's likely a new issue
+        if (Math.abs(createdAt.getTime() - updatedAt.getTime()) < 60000) {
+          // within 1 minute
+          activities.push(
+            createActivityMessage({
+              text: `${issue.identifier} (${issue.title}) Issue created`,
+              sourceURL: issue.url,
+            }),
+          );
+          activityCreated = true;
+        }
+      }
     } catch (error) {
-      console.error(`Error processing issue ${issue.id}:`, error);
+      // Silently ignore errors to prevent stdout pollution
     }
   }
 
-  // Create activities in the system
-  for (const activity of activities) {
-    await createActivity(activity);
-  }
-
-  return activities.length;
+  return activities;
 }
 
 /**
  * Process comment activities and create appropriate activity records
  */
-async function processCommentActivities(comments: any[], userId: string, integrationAccount: any) {
+async function processCommentActivities(comments: any[], userId: string, userInfo: any) {
   const activities = [];
 
   for (const comment of comments) {
@@ -439,19 +356,22 @@ async function processCommentActivities(comments: any[], userId: string, integra
         comment.issue?.subscribers?.nodes?.some((subscriber: any) => subscriber.id === userId) ||
         false;
 
+      // Check for mentions in the comment body
+      const isMentioned = checkForUserMentions(comment.body, userInfo);
+
       // Skip if not relevant to user
-      if (!isCommenter && !isIssueCreator && !isAssignee && !isSubscribed) {
-        // TODO: Check for mentions in the comment body
+      if (!isCommenter && !isIssueCreator && !isAssignee && !isSubscribed && !isMentioned) {
         continue;
       }
 
       let title;
-      let sourceId;
 
       if (isCommenter) {
         // Comment created by the user
         title = `You commented on issue ${comment.issue.identifier}: ${truncateText(comment.body, 100)}`;
-        sourceId = `linear-comment-created-${comment.id}`;
+      } else if (isMentioned) {
+        // User was mentioned in the comment
+        title = `${comment.user?.name || 'Someone'} mentioned you in issue ${comment.issue.identifier}: ${truncateText(comment.body, 100)}`;
       } else if (isAssignee || isIssueCreator || isSubscribed) {
         // Comment on issue where user is assignee, creator, or subscriber
         let relation = 'an issue';
@@ -463,29 +383,40 @@ async function processCommentActivities(comments: any[], userId: string, integra
           relation = "an issue you're subscribed to";
         }
         title = `${comment.user?.name || 'Someone'} commented on ${relation} ${comment.issue.identifier}: ${truncateText(comment.body, 100)}`;
-        sourceId = `linear-comment-received-${comment.id}`;
       }
 
-      if (title && sourceId) {
-        activities.push({
-          url: `https://api.linear.app/comment/${comment.id}`,
-          title,
-          sourceId,
-          sourceURL: `${comment.issue.url}#comment-${comment.id}`,
-          integrationAccountId: integrationAccount.id,
-        });
+      if (title) {
+        activities.push(
+          createActivityMessage({
+            text: title,
+            sourceURL: `${comment.issue.url}#comment-${comment.id}`,
+          }),
+        );
       }
     } catch (error) {
-      console.error(`Error processing comment ${comment.id}:`, error);
+      // Silently ignore errors to prevent stdout pollution
     }
   }
 
-  // Create activities in the system
-  for (const activity of activities) {
-    await createActivity(activity);
-  }
+  return activities;
+}
 
-  return activities.length;
+/**
+ * Helper function to check for user mentions in text
+ */
+function checkForUserMentions(text: string, userInfo: any): boolean {
+  if (!text || !userInfo) return false;
+
+  const lowerText = text.toLowerCase();
+
+  // Check for @username, @display name, or @email mentions
+  const mentionPatterns = [
+    userInfo.name && `@${userInfo.name.toLowerCase()}`,
+    userInfo.displayName && `@${userInfo.displayName.toLowerCase()}`,
+    userInfo.email && `@${userInfo.email.toLowerCase()}`,
+  ].filter(Boolean);
+
+  return mentionPatterns.some((pattern) => lowerText.includes(pattern));
 }
 
 /**
@@ -508,87 +439,84 @@ function getDefaultSyncTime(): string {
 /**
  * Main function to handle scheduled sync for Linear integration
  */
-export async function handleSchedule(integrationAccount: any) {
+export async function handleSchedule(config: any, state: any) {
   try {
-    const integrationConfiguration = integrationAccount.integrationConfiguration as any;
+    const integrationConfiguration = config;
 
     // Check if we have a valid access token
     if (!integrationConfiguration?.accessToken) {
-      console.error('No access token found for Linear integration');
-      return { message: 'No access token found' };
+      return [];
     }
 
     // Get settings or initialize if not present
-    const settings = (integrationAccount.settings || {}) as LinearSettings;
+    let settings = (state || {}) as LinearSettings;
 
     // Default to 24 hours ago if no last sync times
     const lastIssuesSync = settings.lastIssuesSync || getDefaultSyncTime();
     const lastCommentsSync = settings.lastCommentsSync || getDefaultSyncTime();
 
     // Fetch user info to identify activities relevant to them
-    const user = await fetchUserInfo(integrationConfiguration.accessToken);
-
-    if (!user || !user.id) {
-      console.error('Failed to fetch user info from Linear');
-      return { message: 'Failed to fetch user info' };
+    let user;
+    try {
+      user = await fetchUserInfo(integrationConfiguration.accessToken);
+    } catch (error) {
+      return [];
     }
 
+    if (!user || !user.id) {
+      return [];
+    }
+
+    // Collect all messages
+    const messages = [];
+
     // Process all issue activities (created, assigned, updated, etc.)
-    let issueCount = 0;
     try {
       const issues = await fetchRecentIssues(integrationConfiguration.accessToken, lastIssuesSync);
       if (issues && issues.nodes) {
-        issueCount = await processIssueActivities(issues.nodes, user.id, integrationAccount);
+        const issueActivities = await processIssueActivities(issues.nodes, user.id);
+        messages.push(...issueActivities);
       }
     } catch (error) {
-      console.error('Error processing issues:', error);
+      // Silently ignore errors to prevent stdout pollution
     }
 
     // Process all comment activities
-    let commentCount = 0;
     try {
       const comments = await fetchRecentComments(
         integrationConfiguration.accessToken,
         lastCommentsSync,
       );
       if (comments && comments.nodes) {
-        commentCount = await processCommentActivities(comments.nodes, user.id, integrationAccount);
+        const commentActivities = await processCommentActivities(comments.nodes, user.id, user);
+        messages.push(...commentActivities);
       }
     } catch (error) {
-      console.error('Error processing comments:', error);
+      // Silently ignore errors to prevent stdout pollution
     }
-
-    // TODO: Implement additional activity types:
-    // - Reaction tracking
-    // - PR/Merge request tracking (if supported by Linear)
-    // - Project and cycle updates
-    // - Team updates and notifications
-    // - Mention detection in descriptions and comments
 
     // Update last sync times
     const newSyncTime = new Date().toISOString();
 
-    // Save new settings
-    integrationAccount.settings = {
-      ...settings,
-      lastIssuesSync: newSyncTime,
-      lastCommentsSync: newSyncTime,
-    };
+    // Add state message for saving settings
+    messages.push({
+      type: 'state',
+      data: {
+        ...settings,
+        lastIssuesSync: newSyncTime,
+        lastCommentsSync: newSyncTime,
+      },
+    });
 
-    return {
-      message: `Synced ${issueCount} issues and ${commentCount} comments from Linear`,
-    };
+    return messages;
   } catch (error) {
-    console.error('Error in Linear scheduled sync:', error);
-    return {
-      message: `Error syncing Linear activities: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
+    return [];
   }
 }
 
 /**
  * The main handler for the scheduled sync event
  */
-export async function scheduleHandler(integrationAccount: any) {
-  return handleSchedule(integrationAccount);
+export async function scheduleHandler(config: any, state: any) {
+  return handleSchedule(config, state);
 }

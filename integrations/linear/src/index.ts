@@ -16,7 +16,7 @@ export async function run(eventPayload: IntegrationEventPayload) {
         : await integrationCreate(eventPayload.eventBody);
 
     case IntegrationEventType.SYNC:
-      return await handleSchedule(eventPayload.config);
+      return await handleSchedule(eventPayload.config, eventPayload.state);
 
     default:
       return { message: `The event payload type is ${eventPayload.event}` };

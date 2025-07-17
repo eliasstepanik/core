@@ -44,12 +44,9 @@ export const SkillComponent = (props: any) => {
   const getComponent = () => {
     return (
       <>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="bg-grayAlpha-100 text-sm-md mt-0.5 flex w-fit items-center gap-2 rounded p-2">
           {getIcon()}
           <span className="font-mono text-sm">{snakeToTitleCase(name)}</span>
-        </div>
-        <div className="px-0">
-          {!open ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </div>
       </>
     );
