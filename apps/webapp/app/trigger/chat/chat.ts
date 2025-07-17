@@ -39,9 +39,10 @@ export const chat = task({
 
       const { agents = [] } = payload.context;
       // Initialise mcp
+      const mcpHeaders = { Authorization: `Bearer ${init?.token}` };
       const mcp = new MCP();
       await mcp.init();
-      await mcp.load(agents, { Authorization: `Bearer ${init?.token}` });
+      await mcp.load(agents, mcpHeaders);
 
       // Prepare context with additional metadata
       const context = {
@@ -77,6 +78,8 @@ export const chat = task({
         previousExecutionHistory,
         mcp,
         stepHistory,
+        init?.mcpServers ?? [],
+        mcpHeaders,
       );
 
       const stream = await metadata.stream("messages", llmResponse);
