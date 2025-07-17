@@ -126,7 +126,6 @@ const executeCLICommand = async (
           args.push("--config", JSON.stringify(config || {}));
           args.push("--state", JSON.stringify(state || {}));
           break;
-
         default:
           throw new Error(`Unsupported event type: ${eventType}`);
       }
@@ -272,7 +271,7 @@ async function handleMessageResponse(
 
     // Handle "activity" messages
     if (grouped["activity"]) {
-      return await handleActivityMessage(
+      await handleActivityMessage(
         grouped["activity"],
         integrationAccountId as string,
         userId,
@@ -281,7 +280,7 @@ async function handleMessageResponse(
 
     // Handle "state" messages
     if (grouped["state"]) {
-      return await handleStateMessage(
+      await handleStateMessage(
         grouped["state"],
         integrationAccountId as string,
       );
@@ -289,12 +288,12 @@ async function handleMessageResponse(
 
     // Handle "identifier" messages
     if (grouped["identifier"]) {
-      return await handleIdentifierMessage(grouped["identifier"][0]);
+      await handleIdentifierMessage(grouped["identifier"][0]);
     }
 
     // Handle "account" messages (these may involve Prisma writes)
     if (grouped["account"]) {
-      return await handleAccountMessage(
+      await handleAccountMessage(
         grouped["account"],
         integrationDefinition,
         workspaceId,
