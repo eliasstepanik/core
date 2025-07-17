@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  List,
   InfiniteLoader,
-  WindowScroller,
   AutoSizer,
   CellMeasurer,
   CellMeasurerCache,
@@ -12,21 +10,15 @@ import {
 import { type LogItem } from "~/hooks/use-logs";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
-import { AlertCircle, ChevronDown, XCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { ScrollManagedList } from "../virtualized-list";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui";
 
 // --- LogTextCollapse component ---
-function LogTextCollapse({ text }: { text?: string }) {
+function LogTextCollapse({ text, error }: { text?: string; error?: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Show collapse if text is long (by word count)
@@ -52,38 +44,60 @@ function LogTextCollapse({ text }: { text?: string }) {
   }
 
   return (
-    <div className="mb-2">
-      <p
-        className={cn(
-          "whitespace-p-wrap pt-2 text-sm break-words",
-          isLong ? "max-h-16 overflow-hidden" : "",
+    <>
+      <div className="mb-2">
+        <p
+          className={cn(
+            "whitespace-p-wrap pt-2 text-sm break-words",
+            isLong ? "max-h-16 overflow-hidden" : "",
+          )}
+          style={{ lineHeight: "1.5" }}
+        >
+          {displayText}
+        </p>
+        {isLong && (
+          <>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogContent className="max-w-2xl p-4">
+                <DialogHeader>
+                  <DialogTitle className="flex w-full items-center justify-between">
+                    <span>Log Details</span>
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="max-h-[70vh] overflow-auto p-0">
+                  <p
+                    className="px-3 py-2 text-sm break-words whitespace-pre-wrap"
+                    style={{ lineHeight: "1.5" }}
+                  >
+                    {text}
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
-        style={{ lineHeight: "1.5" }}
+      </div>
+      <div
+        className={cn(
+          "text-muted-foreground flex items-center justify-end text-xs",
+          isLong && "justify-between",
+        )}
       >
-        {displayText}
-      </p>
-      {isLong && (
-        <>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-2xl p-4">
-              <DialogHeader>
-                <DialogTitle className="flex w-full items-center justify-between">
-                  <span>Log Details</span>
-                </DialogTitle>
-              </DialogHeader>
-              <div className="max-h-[70vh] overflow-auto p-0">
-                <p
-                  className="px-3 py-2 text-sm break-words whitespace-pre-wrap"
-                  style={{ lineHeight: "1.5" }}
-                >
-                  {text}
-                </p>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
-    </div>
+        {isLong && (
+          <Button variant="ghost" size="sm" className="-ml-2 rounded">
+            See full
+          </Button>
+        )}
+        {error && (
+          <div className="flex items-center gap-1 text-red-600">
+            <AlertCircle className="h-3 w-3" />
+            <span className="max-w-[200px] truncate" title={error}>
+              {error}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -169,26 +183,7 @@ function LogItemRenderer(
               </div>
             </div>
 
-            <LogTextCollapse text={log.ingestText} />
-
-            <div className="text-muted-foreground flex items-center justify-between text-xs">
-              <div className="flex items-center gap-4">
-                {log.processedAt && (
-                  <span>
-                    Processed: {new Date(log.processedAt).toLocaleString()}
-                  </span>
-                )}
-              </div>
-
-              {log.error && (
-                <div className="flex items-center gap-1 text-red-600">
-                  <AlertCircle className="h-3 w-3" />
-                  <span className="max-w-[200px] truncate" title={log.error}>
-                    {log.error}
-                  </span>
-                </div>
-              )}
-            </div>
+            <LogTextCollapse text={log.ingestText} error={log.error} />
           </CardContent>
         </Card>
       </div>

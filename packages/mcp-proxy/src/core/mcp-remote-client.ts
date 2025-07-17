@@ -116,33 +116,8 @@ export function createMCPProxy(
           bridgeOptions
         );
 
-        // Set up timeout
-        const timeoutId = config.timeout
-          ? setTimeout(() => {
-              bridge?.close().catch(console.error);
-              if (!resolve) return;
-              resolve(
-                new Response(
-                  JSON.stringify({
-                    error: "Request timeout",
-                  }),
-                  {
-                    status: 408,
-                    headers: { "Content-Type": "application/json" },
-                  }
-                )
-              );
-            }, config.timeout)
-          : null;
-
         // Start only the client transport (server is already started)
         await clientTransport.start();
-
-        // Clean up after a reasonable time (since HTTP is request/response)
-        setTimeout(() => {
-          if (timeoutId) clearTimeout(timeoutId);
-          bridge?.close().catch(console.error);
-        }, 1000);
       } catch (error) {
         console.error("MCP Transport Proxy Error:", error);
 
@@ -186,32 +161,16 @@ export function createMCPProxy(
     // Create transport based on strategy (don't start yet)
     let transport: SSEClientTransport | StreamableHTTPClientTransport;
 
-    // For SSE, we need eventSourceInit for authentication
-    const eventSourceInit = {
-      fetch: (url: string | URL, init?: RequestInit) => {
-        return fetch(url, {
-          ...init,
-          headers: {
-            ...(init?.headers as Record<string, string> | undefined),
-            ...headers,
-            Accept: "text/event-stream",
-          } as Record<string, string>,
-        });
-      },
-    };
-
     switch (transportStrategy) {
       case "sse-only":
         transport = new SSEClientTransport(url, {
           authProvider,
           requestInit: { headers },
-          eventSourceInit,
         });
         break;
 
       case "http-only":
         transport = new StreamableHTTPClientTransport(url, {
-          authProvider,
           requestInit: { headers },
         });
         break;
@@ -222,7 +181,6 @@ export function createMCPProxy(
           transport = new SSEClientTransport(url, {
             authProvider,
             requestInit: { headers },
-            eventSourceInit,
           });
         } catch (error) {
           console.warn("SSE transport failed, falling back to HTTP:", error);
@@ -237,7 +195,6 @@ export function createMCPProxy(
         // Try HTTP first, fallback to SSE on error
         try {
           transport = new StreamableHTTPClientTransport(url, {
-            authProvider,
             requestInit: { headers },
           });
         } catch (error) {
@@ -245,7 +202,6 @@ export function createMCPProxy(
           transport = new SSEClientTransport(url, {
             authProvider,
             requestInit: { headers },
-            eventSourceInit,
           });
         }
         break;

@@ -83,5 +83,7 @@ export class RemixMCPTransport implements Transport {
 
   onmessage: (message: any) => void = () => {};
   onclose: () => void = () => {};
-  onerror: (error: Error) => void = () => {};
+  async onerror(error: Error) {
+    console.log(error);
+  }
 }
