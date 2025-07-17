@@ -20,6 +20,8 @@ import {
   upsertIngestionRule,
 } from "~/services/ingestionRule.server";
 import { Section } from "~/components/integrations/section";
+import { PageHeader } from "~/components/common/page-header";
+import { Plus } from "lucide-react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
@@ -139,84 +141,105 @@ export default function IntegrationDetail() {
   const Component = getIcon(integration.icon as IconType);
 
   return (
-    <div className="overflow-hidden p-4 px-5">
-      <Section
-        title={integration.name}
-        description={integration.description}
-        icon={
-          <div className="bg-grayAlpha-100 flex h-12 w-12 items-center justify-center rounded">
-            <Component size={24} />
-          </div>
-        }
-      >
-        <div>
-          {/* Authentication Methods */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Authentication Methods</h3>
-            <div className="space-y-2">
-              {hasApiKey && (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 text-sm">
-                    <Checkbox checked /> API Key authentication
-                  </span>
-                </div>
-              )}
-              {hasOAuth2 && (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 text-sm">
-                    <Checkbox checked />
-                    OAuth 2.0 authentication
-                  </span>
-                </div>
-              )}
-              {!hasApiKey && !hasOAuth2 && !hasMCPAuth && (
-                <div className="text-muted-foreground text-sm">
-                  No authentication method specified
-                </div>
-              )}
+    <div className="flex h-full flex-col overflow-hidden">
+      <PageHeader
+        title="Integrations"
+        breadcrumbs={[
+          { label: "Integrations", href: "/home/integrations" },
+          { label: integration?.name || "Untitled" },
+        ]}
+        actions={[
+          {
+            label: "Request New Integration",
+            icon: <Plus size={14} />,
+            onClick: () =>
+              window.open(
+                "https://github.com/redplanethq/core/issues/new",
+                "_blank",
+              ),
+            variant: "secondary",
+          },
+        ]}
+      />
+      <div className="h-[calc(100vh_-_56px)] overflow-hidden p-4 px-5">
+        <Section
+          title={integration.name}
+          description={integration.description}
+          icon={
+            <div className="bg-grayAlpha-100 flex h-12 w-12 items-center justify-center rounded">
+              <Component size={24} />
             </div>
-          </div>
-
-          {/* Connect Section */}
-          {!activeAccount && (hasApiKey || hasOAuth2) && (
-            <div className="mt-6 space-y-4">
-              <h3 className="text-lg font-medium">
-                Connect to {integration.name}
-              </h3>
-
-              {/* API Key Authentication */}
-              <ApiKeyAuthSection
-                integration={integration}
-                specData={specData}
-                activeAccount={activeAccount}
-              />
-
-              {/* OAuth Authentication */}
-              <OAuthAuthSection
-                integration={integration}
-                specData={specData}
-                activeAccount={activeAccount}
-              />
+          }
+        >
+          <div>
+            {/* Authentication Methods */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Authentication Methods</h3>
+              <div className="space-y-2">
+                {hasApiKey && (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <Checkbox checked /> API Key authentication
+                    </span>
+                  </div>
+                )}
+                {hasOAuth2 && (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <Checkbox checked />
+                      OAuth 2.0 authentication
+                    </span>
+                  </div>
+                )}
+                {!hasApiKey && !hasOAuth2 && !hasMCPAuth && (
+                  <div className="text-muted-foreground text-sm">
+                    No authentication method specified
+                  </div>
+                )}
+              </div>
             </div>
-          )}
 
-          {/* Connected Account Info */}
-          <ConnectedAccountSection activeAccount={activeAccount} />
+            {/* Connect Section */}
+            {!activeAccount && (hasApiKey || hasOAuth2) && (
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-medium">
+                  Connect to {integration.name}
+                </h3>
 
-          {/* MCP Authentication Section */}
-          <MCPAuthSection
-            integration={integration}
-            activeAccount={activeAccount as any}
-            hasMCPAuth={hasMCPAuth}
-          />
+                {/* API Key Authentication */}
+                <ApiKeyAuthSection
+                  integration={integration}
+                  specData={specData}
+                  activeAccount={activeAccount}
+                />
 
-          {/* Ingestion Rule Section */}
-          <IngestionRuleSection
-            ingestionRule={ingestionRule}
-            activeAccount={activeAccount}
-          />
-        </div>
-      </Section>
+                {/* OAuth Authentication */}
+                <OAuthAuthSection
+                  integration={integration}
+                  specData={specData}
+                  activeAccount={activeAccount}
+                />
+              </div>
+            )}
+
+            {/* Connected Account Info */}
+            <ConnectedAccountSection activeAccount={activeAccount} />
+
+            {/* MCP Authentication Section */}
+            <MCPAuthSection
+              integration={integration}
+              activeAccount={activeAccount as any}
+              hasMCPAuth={hasMCPAuth}
+            />
+
+            {/* Ingestion Rule Section */}
+            <IngestionRuleSection
+              ingestionRule={ingestionRule}
+              activeAccount={activeAccount}
+            />
+          </div>
+        </Section>
+      </div>
     </div>
   );
 }
