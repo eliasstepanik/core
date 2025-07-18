@@ -1,10 +1,11 @@
-import { intro, outro, text, confirm, spinner } from "@clack/prompts";
+import { intro, outro, text, confirm, spinner, note, log } from "@clack/prompts";
 import { isValidCoreRepo } from "../utils/git.js";
 import { fileExists, updateEnvFile } from "../utils/file.js";
-import { checkPostgresHealth, executeDockerCommand } from "../utils/docker.js";
+import { checkPostgresHealth } from "../utils/docker.js";
+import { executeDockerCommandInteractive } from "../utils/docker-interactive.js";
 import { printCoreBrainLogo } from "../utils/ascii.js";
 import { setupEnvFile } from "../utils/env.js";
-import { execSync } from "child_process";
+import { hasTriggerConfig } from "../utils/env-checker.js";
 import path from "path";
 
 export async function initCommand() {
@@ -15,10 +16,40 @@ export async function initCommand() {
 
   // Step 1: Validate repository
   if (!isValidCoreRepo()) {
-    outro(
-      "L Error: This command must be run in the https://github.com/redplanethq/core repository"
+    log.warning("This directory is not a Core repository");
+    note(
+      "The Core repository is required to run the development environment.\nWould you like to clone it in the current directory?",
+      "🔍 Repository Not Found"
     );
-    process.exit(1);
+
+    const shouldClone = await confirm({
+      message: "Clone the Core repository here?",
+    });
+
+    if (!shouldClone) {
+      outro("❌ Setup cancelled. Please navigate to the Core repository or clone it first.");
+      process.exit(1);
+    }
+
+    // Clone the repository
+    try {
+      await executeDockerCommandInteractive("git clone https://github.com/redplanethq/core.git .", {
+        cwd: process.cwd(),
+        message: "Cloning Core repository...",
+        showOutput: true,
+      });
+
+      log.success("Core repository cloned successfully!");
+      note(
+        'Please run "core init" again to initialize the development environment.',
+        "✅ Repository Ready"
+      );
+      outro("🎉 Core repository is now available!");
+      process.exit(0);
+    } catch (error: any) {
+      outro(`❌ Failed to clone repository: ${error.message}`);
+      process.exit(1);
+    }
   }
 
   const rootDir = process.cwd();
@@ -45,14 +76,13 @@ export async function initCommand() {
     }
 
     // Step 3: Docker compose up -d in root
-    const s2 = spinner();
-    s2.start("Starting Docker containers in root...");
-
     try {
-      await executeDockerCommand("docker compose up -d", rootDir);
-      s2.stop("Docker containers started");
+      await executeDockerCommandInteractive("docker compose up -d", {
+        cwd: rootDir,
+        message: "Starting Docker containers in root...",
+        showOutput: true,
+      });
     } catch (error: any) {
-      s2.stop("L Failed to start Docker containers");
       throw error;
     }
 
@@ -98,93 +128,118 @@ export async function initCommand() {
     }
 
     // Step 6: Docker compose up for trigger
-    const s5 = spinner();
-    s5.start("Starting Trigger.dev containers...");
-
     try {
-      await executeDockerCommand("docker compose up -d", triggerDir);
-      s5.stop("Trigger.dev containers started");
+      await executeDockerCommandInteractive("docker compose up -d", {
+        cwd: triggerDir,
+        message: "Starting Trigger.dev containers...",
+        showOutput: true,
+      });
     } catch (error: any) {
-      s5.stop("L Failed to start Trigger.dev containers");
       throw error;
     }
 
-    // Step 7: Show login instructions
-    outro("< Docker containers are now running!");
-    console.log("\n= Next steps:");
-    console.log("1. Open http://localhost:8030 in your browser");
-    console.log(
-      "2. Login to Trigger.dev (check container logs with: docker logs trigger-webapp --tail 50)"
-    );
-    console.log("3. Press Enter when ready to continue...");
+    // Step 7: Check if Trigger.dev configuration already exists
+    const triggerConfigExists = await hasTriggerConfig(envPath);
 
-    await confirm({
-      message: "Have you logged in to Trigger.dev and ready to continue?",
-    });
+    if (triggerConfigExists) {
+      note(
+        "✅ Trigger.dev configuration already exists in .env file\n   Skipping Trigger.dev setup steps...",
+        "Configuration Found"
+      );
+    } else {
+      // Step 8: Show login instructions
+      outro("🎉 Docker containers are now running!");
+      note(
+        "1. Open http://localhost:8030 in your browser\n2. Login to Trigger.dev (check container logs with: docker logs trigger-webapp --tail 50)",
+        "Next Steps"
+      );
 
-    // Step 8: Get project details
-    console.log("\n= In Trigger.dev (http://localhost:8030):");
-    console.log("1. Create a new organization and project");
-    console.log("2. Go to project settings");
-    console.log("3. Copy the Project ID and Secret Key");
+      const loginConfirmed = await confirm({
+        message: "Have you logged in to Trigger.dev successfully?",
+      });
 
-    await confirm({
-      message: "Press Enter to continue after creating org and project...",
-    });
+      if (!loginConfirmed) {
+        outro("❌ Setup cancelled. Please login to Trigger.dev first and run the command again.");
+        process.exit(1);
+      }
 
-    // Step 9: Get project ID and secret
-    const projectId = await text({
-      message: "Enter your Trigger.dev Project ID:",
-      validate: (value) => {
-        if (!value || value.length === 0) {
-          return "Project ID is required";
-        }
-        return;
-      },
-    });
+      // Step 9: Get project details
+      note(
+        "1. Create a new organization and project\n2. Go to project settings\n3. Copy the Project ID and Secret Key",
+        "In Trigger.dev (http://localhost:8030)"
+      );
 
-    const secretKey = await text({
-      message: "Enter your Trigger.dev Secret Key for production:",
-      validate: (value) => {
-        if (!value || value.length === 0) {
-          return "Secret Key is required";
-        }
-        return;
-      },
-    });
+      const projectCreated = await confirm({
+        message: "Have you created an organization and project in Trigger.dev?",
+      });
 
-    // Step 10: Update .env with project details
-    const s6 = spinner();
-    s6.start("Updating .env with Trigger.dev configuration...");
+      if (!projectCreated) {
+        outro(
+          "❌ Setup cancelled. Please create an organization and project first and run the command again."
+        );
+        process.exit(1);
+      }
 
-    try {
-      await updateEnvFile(envPath, "TRIGGER_PROJECT_ID", projectId as string);
-      await updateEnvFile(envPath, "TRIGGER_SECRET_KEY", secretKey as string);
-      s6.stop("Updated .env with Trigger.dev configuration");
-    } catch (error: any) {
-      s6.stop("L Failed to update .env file");
-      throw error;
+      // Step 10: Get project ID and secret
+      const projectId = await text({
+        message: "Enter your Trigger.dev Project ID:",
+        validate: (value) => {
+          if (!value || value.length === 0) {
+            return "Project ID is required";
+          }
+          return;
+        },
+      });
+
+      const secretKey = await text({
+        message: "Enter your Trigger.dev Secret Key for production:",
+        validate: (value) => {
+          if (!value || value.length === 0) {
+            return "Secret Key is required";
+          }
+          return;
+        },
+      });
+
+      // Step 11: Update .env with project details
+      const s6 = spinner();
+      s6.start("Updating .env with Trigger.dev configuration...");
+
+      try {
+        await updateEnvFile(envPath, "TRIGGER_PROJECT_ID", projectId as string);
+        await updateEnvFile(envPath, "TRIGGER_SECRET_KEY", secretKey as string);
+        s6.stop("✅ Updated .env with Trigger.dev configuration");
+      } catch (error: any) {
+        s6.stop("❌ Failed to update .env file");
+        throw error;
+      }
+
+      // Step 12: Restart root docker-compose with new configuration
+      try {
+        await executeDockerCommandInteractive("docker compose down", {
+          cwd: rootDir,
+          message: "Stopping Core services...",
+          showOutput: true,
+        });
+
+        await executeDockerCommandInteractive("docker compose up -d", {
+          cwd: rootDir,
+          message: "Starting Core services with new Trigger.dev configuration...",
+          showOutput: true,
+        });
+      } catch (error: any) {
+        throw error;
+      }
     }
 
-    // Step 11: Restart docker-compose in root
-    const s7 = spinner();
-    s7.start("Restarting Docker containers with new configuration...");
-
-    try {
-      await executeDockerCommand("docker compose down && docker compose up -d", rootDir);
-      s7.stop("Docker containers restarted");
-    } catch (error: any) {
-      s7.stop("L Failed to restart Docker containers");
-      throw error;
-    }
-
-    // Step 12: Show docker login instructions
-    console.log("\n=3 Docker Registry Login:");
-    console.log("Run the following command to login to Docker registry:");
+    // Step 13: Show docker login instructions
+    note("Run the following command to login to Docker registry:", "🐳 Docker Registry Login");
 
     try {
       // Read env file to get docker registry details
-      const envContent = await import("fs").then((fs) => fs.promises.readFile(envPath, "utf8"));
+      const envContent = await import("fs").then((fs) =>
+        fs.promises.readFile(triggerEnvPath, "utf8")
+      );
       const envLines = envContent.split("\n");
 
       const getEnvValue = (key: string) => {
@@ -196,26 +251,74 @@ export async function initCommand() {
       const dockerRegistryUsername = getEnvValue("DOCKER_REGISTRY_USERNAME");
       const dockerRegistryPassword = getEnvValue("DOCKER_REGISTRY_PASSWORD");
 
-      console.log(
-        `\ndocker login ${dockerRegistryUrl} -u ${dockerRegistryUsername} -p ${dockerRegistryPassword}`
+      log.info(
+        `docker login ${dockerRegistryUrl} -u ${dockerRegistryUsername} -p ${dockerRegistryPassword}`
       );
     } catch (error) {
-      console.log("docker login <REGISTRY_URL> -u <USERNAME> -p <PASSWORD>");
+      log.info("docker login <REGISTRY_URL> -u <USERNAME> -p <PASSWORD>");
     }
 
-    await confirm({
-      message: "Press Enter after completing Docker login...",
+    const dockerLoginConfirmed = await confirm({
+      message: "Have you completed the Docker login successfully?",
     });
 
-    // Step 13: Final instructions
-    outro("< Setup Complete!");
-    console.log("\n< Your services are now running:");
-    console.log('" Core Application: http://localhost:3033');
-    console.log('" Trigger.dev: http://localhost:8030');
-    console.log('" PostgreSQL: localhost:5432');
-    console.log("\n( You can now start developing with Core!");
+    if (!dockerLoginConfirmed) {
+      outro("❌ Setup cancelled. Please complete Docker login first and run the command again.");
+      process.exit(1);
+    }
+
+    // Step 14: Deploy Trigger.dev tasks
+    note(
+      "We'll now deploy the trigger tasks to your Trigger.dev instance.",
+      "🚀 Deploying Trigger.dev tasks"
+    );
+
+    try {
+      // Login to trigger.dev CLI
+      await executeDockerCommandInteractive(
+        "npx -y trigger.dev@v4-beta login -a http://localhost:8030",
+        {
+          cwd: rootDir,
+          message: "Logging in to Trigger.dev CLI...",
+          showOutput: true,
+        }
+      );
+
+      // Deploy trigger tasks
+      await executeDockerCommandInteractive("pnpm trigger:deploy", {
+        cwd: rootDir,
+        message: "Deploying Trigger.dev tasks...",
+        showOutput: true,
+      });
+
+      log.success("Trigger.dev tasks deployed successfully!");
+    } catch (error: any) {
+      log.warning("Failed to deploy Trigger.dev tasks:");
+      note(
+        `${error.message}\n\nYou can deploy them manually later with:\n1. npx trigger.dev@v4-beta login -a http://localhost:8030\n2. pnpm trigger:deploy`,
+        "Manual Deployment"
+      );
+    }
+
+    // Step 15: Final instructions
+    outro("🎉 Setup Complete!");
+    note(
+      [
+        "Your services are now running:",
+        "",
+        "• Core Application: http://localhost:3033",
+        "• Trigger.dev: http://localhost:8030",
+        "• PostgreSQL: localhost:5432",
+        "",
+        "You can now start developing with Core!",
+        "",
+        "ℹ️  When logging in to the Core Application, you can find the login URL in the Docker container logs:",
+        "    docker logs core-app --tail 50",
+      ].join("\n"),
+      "🚀 Services Running"
+    );
   } catch (error: any) {
-    outro(`L Setup failed: ${error.message}`);
+    outro(`❌ Setup failed: ${error.message}`);
     process.exit(1);
   }
 }

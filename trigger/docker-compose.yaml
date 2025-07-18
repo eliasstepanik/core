@@ -47,7 +47,7 @@ services:
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       MANAGED_WORKER_SECRET: ${MANAGED_WORKER_SECRET}
-      REDIS_HOST: trigger-redis
+      REDIS_HOST: host.docker.internal
       REDIS_PORT: 6379
       REDIS_TLS_DISABLED: true
       APP_LOG_LEVEL: info
