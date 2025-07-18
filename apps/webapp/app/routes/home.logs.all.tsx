@@ -30,7 +30,7 @@ export default function LogsAll() {
     return (
       <AppContainer>
         <PageContainer>
-          <div className="flex h-64 items-center justify-center">
+          <div className="flex h-[calc(100vh_-_16px)] items-center justify-center">
             <LoaderCircle className="text-primary h-4 w-4 animate-spin" />
           </div>
         </PageContainer>
