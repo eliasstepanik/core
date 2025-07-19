@@ -1,4 +1,8 @@
-import { type ActionFunctionArgs, type LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+  json,
+} from "@remix-run/node";
 import { PrismaClient } from "@prisma/client";
 import { requireAuth } from "~/utils/auth-helper";
 import crypto from "crypto";
@@ -63,12 +67,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     const body = await request.json();
-    
-    const { name, description, redirectUris, allowedScopes, requirePkce, logoUrl, homepageUrl } = body;
+
+    const {
+      name,
+      description,
+      redirectUris,
+      allowedScopes,
+      requirePkce,
+      logoUrl,
+      homepageUrl,
+    } = body;
 
     // Validate required fields
     if (!name || !redirectUris) {
-      return json({ error: "Name and redirectUris are required" }, { status: 400 });
+      return json(
+        { error: "Name and redirectUris are required" },
+        { status: 400 },
+      );
     }
 
     // Get user's workspace
@@ -83,7 +98,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Generate client credentials
     const clientId = crypto.randomUUID();
-    const clientSecret = crypto.randomBytes(32).toString('hex');
+    const clientSecret = crypto.randomBytes(32).toString("hex");
 
     // Create OAuth client
     const client = await prisma.oAuthClient.create({
@@ -92,8 +107,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         clientSecret,
         name,
         description: description || null,
-        redirectUris: Array.isArray(redirectUris) ? redirectUris.join(',') : redirectUris,
-        allowedScopes: Array.isArray(allowedScopes) ? allowedScopes.join(',') : allowedScopes || "read",
+        redirectUris: Array.isArray(redirectUris)
+          ? redirectUris.join(",")
+          : redirectUris,
+        allowedScopes: Array.isArray(allowedScopes)
+          ? allowedScopes.join(",")
+          : allowedScopes || "read",
         requirePkce: requirePkce || false,
         logoUrl: logoUrl || null,
         homepageUrl: homepageUrl || null,
@@ -116,12 +135,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    return json({ 
-      success: true, 
+    return json({
+      success: true,
       client,
-      message: "OAuth client created successfully. Save the client_secret securely - it won't be shown again."
+      message:
+        "OAuth client created successfully. Save the client_secret securely - it won't be shown again.",
     });
-
   } catch (error) {
     console.error("Error creating OAuth client:", error);
     return json({ error: "Internal server error" }, { status: 500 });
