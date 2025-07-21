@@ -1,10 +1,11 @@
 import { intro, outro, text, confirm, spinner, note, log } from "@clack/prompts";
 import { fileExists, updateEnvFile } from "../utils/file.js";
 import { checkPostgresHealth } from "../utils/docker.js";
-import { executeDockerCommandInteractive } from "../utils/docker-interactive.js";
+import { executeCommandInteractive } from "../utils/docker-interactive.js";
 import { printCoreBrainLogo } from "../utils/ascii.js";
 import { setupEnvFile } from "../utils/env.js";
 import { hasTriggerConfig } from "../utils/env-checker.js";
+import { getDockerCompatibleEnvVars } from "../utils/env-docker.js";
 import path from "path";
 
 export async function initCommand() {
@@ -14,20 +15,27 @@ export async function initCommand() {
   intro("🚀 Core Development Environment Setup");
 
   // Step 1: Confirm this is the Core repository
-  note("Please ensure you have:\n• Docker and Docker Compose installed\n• Git installed\n• pnpm package manager installed\n• You are in the Core repository directory", "📋 Prerequisites");
-  
+  note(
+    "Please ensure you have:\n• Docker and Docker Compose installed\n• Git installed\n• pnpm package manager installed\n• You are in the Core repository directory",
+    "📋 Prerequisites"
+  );
+
   const isCoreRepo = await confirm({
     message: "Are you currently in the Core repository directory?",
   });
 
   if (!isCoreRepo) {
-    note("Please clone the Core repository first:\n\ngit clone https://github.com/redplanethq/core.git\ncd core\n\nThen run 'core init' again.", "📥 Clone Repository");
+    note(
+      "Please clone the Core repository first:\n\ngit clone https://github.com/redplanethq/core.git\ncd core\n\nThen run 'core init' again.",
+      "📥 Clone Repository"
+    );
     outro("❌ Setup cancelled. Please navigate to the Core repository first.");
     process.exit(1);
   }
 
   const rootDir = process.cwd();
   const triggerDir = path.join(rootDir, "trigger");
+  const webappDir = path.join(rootDir, "apps", "webapp");
 
   try {
     // Step 2: Setup .env file in root
@@ -51,7 +59,7 @@ export async function initCommand() {
 
     // Step 3: Docker compose up -d in root
     try {
-      await executeDockerCommandInteractive("docker compose up -d", {
+      await executeCommandInteractive("docker compose up -d", {
         cwd: rootDir,
         message: "Starting Docker containers in root...",
         showOutput: true,
@@ -103,7 +111,7 @@ export async function initCommand() {
 
     // Step 6: Docker compose up for trigger
     try {
-      await executeDockerCommandInteractive("docker compose up -d", {
+      await executeCommandInteractive("docker compose up -d", {
         cwd: triggerDir,
         message: "Starting Trigger.dev containers...",
         showOutput: true,
@@ -175,6 +183,16 @@ export async function initCommand() {
         },
       });
 
+      const openaiApiKey = await text({
+        message: "Enter your OpenAI API Key:",
+        validate: (value) => {
+          if (!value || value.length === 0) {
+            return "OpenAI API Key is required";
+          }
+          return;
+        },
+      });
+
       // Step 11: Update .env with project details
       const s6 = spinner();
       s6.start("Updating .env with Trigger.dev configuration...");
@@ -182,6 +200,7 @@ export async function initCommand() {
       try {
         await updateEnvFile(envPath, "TRIGGER_PROJECT_ID", projectId as string);
         await updateEnvFile(envPath, "TRIGGER_SECRET_KEY", secretKey as string);
+        await updateEnvFile(envPath, "OPENAI_API_KEY", openaiApiKey as string);
         s6.stop("✅ Updated .env with Trigger.dev configuration");
       } catch (error: any) {
         s6.stop("❌ Failed to update .env file");
@@ -190,13 +209,13 @@ export async function initCommand() {
 
       // Step 12: Restart root docker-compose with new configuration
       try {
-        await executeDockerCommandInteractive("docker compose down", {
+        await executeCommandInteractive("docker compose down", {
           cwd: rootDir,
           message: "Stopping Core services...",
           showOutput: true,
         });
 
-        await executeDockerCommandInteractive("docker compose up -d", {
+        await executeCommandInteractive("docker compose up -d", {
           cwd: rootDir,
           message: "Starting Core services with new Trigger.dev configuration...",
           showOutput: true,
@@ -226,10 +245,10 @@ export async function initCommand() {
       const dockerRegistryPassword = getEnvValue("DOCKER_REGISTRY_PASSWORD");
 
       log.info(
-        `docker login ${dockerRegistryUrl} -u ${dockerRegistryUsername} -p ${dockerRegistryPassword}`
+        `docker login -u ${dockerRegistryUsername} -p ${dockerRegistryPassword} ${dockerRegistryUrl} `
       );
     } catch (error) {
-      log.info("docker login <REGISTRY_URL> -u <USERNAME> -p <PASSWORD>");
+      log.info("docker login -u <USERNAME> -p <PASSWORD> <REGISTRY_URL>");
     }
 
     const dockerLoginConfirmed = await confirm({
@@ -249,8 +268,8 @@ export async function initCommand() {
 
     try {
       // Login to trigger.dev CLI
-      await executeDockerCommandInteractive(
-        "npx -y trigger.dev@v4-beta login -a http://localhost:8030",
+      await executeCommandInteractive(
+        "npx -y trigger.dev@4.0.0-v4-beta.22 login -a http://localhost:8030",
         {
           cwd: rootDir,
           message: "Logging in to Trigger.dev CLI...",
@@ -258,11 +277,27 @@ export async function initCommand() {
         }
       );
 
-      // Deploy trigger tasks
-      await executeDockerCommandInteractive("pnpm trigger:deploy", {
+      await executeCommandInteractive("pnpm install", {
         cwd: rootDir,
+        message: "Running package installation",
+        showOutput: true,
+      });
+
+      await executeCommandInteractive("pnpm build --filter=@core/types --filter=@core/database", {
+        cwd: rootDir,
+        message: "Building @core/types and @core/database with turbo...",
+        showOutput: true,
+      });
+
+      // Deploy trigger tasks
+      const envVars = await getDockerCompatibleEnvVars(rootDir);
+
+      console.log(envVars);
+      await executeCommandInteractive("pnpm run trigger:deploy", {
+        cwd: webappDir,
         message: "Deploying Trigger.dev tasks...",
         showOutput: true,
+        env: envVars,
       });
 
       log.success("Trigger.dev tasks deployed successfully!");

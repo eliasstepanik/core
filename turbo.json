@@ -1,6 +1,5 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": [ "^build" ],
@@ -52,6 +51,7 @@
     "SESSION_SECRET",
     "APP_ORIGIN",
     "LOGIN_ORIGIN",
+    "API_BASE_URL",
     "POSTHOG_PROJECT_KEY",
     "AUTH_GOOGLE_CLIENT_ID",
     "AUTH_GOOGLE_CLIENT_SECRET",
