@@ -16,7 +16,6 @@ export async function getDockerCompatibleEnvVars(rootDir: string): Promise<Recor
     const envVarsExpand =
       dotenvExpand.expand(dotenv.config({ path: envPath, processEnv: {} })).parsed || {};
 
-    console.log(JSON.stringify(envVarsExpand));
     const getEnvValue = (key: string): string => {
       return envVarsExpand[key] || "";
     };

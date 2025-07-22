@@ -5,10 +5,10 @@
   "icon": "slack",
   "mcp": {
     "type": "stdio",
-    "command": "npx",
-    "args": [ "-y", "@modelcontextprotocol/server-slack" ],
+    "url": "",
+    "args": [ ],
     "env": {
-      "SLACK_BOT_TOKEN": "${config:access_token}"
+      "SLACK_MCP_XOXP_TOKEN": "${config:access_token}"
     }
   },
   "auth": {

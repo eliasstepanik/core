@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getIntegrationAccount } from "~/services/integrationAccount.server";
 import { createMCPStdioProxy } from "@core/mcp-proxy";
 import { randomUUID } from "node:crypto";
+import { configureStdioMCPEnvironment } from "~/trigger/utils/mcp";
 
 export const integrationSlugSchema = z.object({
   slug: z.string(),
@@ -64,13 +65,13 @@ const { action, loader } = createActionApiRoute(
 
       const { url, type } = spec.mcp;
 
-      if (type === "http") {
-        // Find the integration account for this user and integration
-        const integrationAccount = await getIntegrationAccount(
-          integrationDefinition.id,
-          authentication.userId,
-        );
+      // Find the integration account for this user and integration
+      const integrationAccount = await getIntegrationAccount(
+        integrationDefinition.id,
+        authentication.userId,
+      );
 
+      if (type === "http") {
         const integrationConfig =
           integrationAccount?.integrationConfiguration as any;
 
@@ -97,7 +98,23 @@ const { action, loader } = createActionApiRoute(
           integrationConfig.mcp.tokens.access_token,
         );
       } else {
-        const { command } = spec.mcp;
+        if (!integrationAccount) {
+          return new Response(
+            JSON.stringify({
+              error: "No integration account found",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Configure environment variables using the utility function
+        const { env, args } = configureStdioMCPEnvironment(
+          spec,
+          integrationAccount,
+        );
 
         // Get session_id from headers (case-insensitive), or generate a new uuid if not present
         const sessionId =
@@ -105,10 +122,11 @@ const { action, loader } = createActionApiRoute(
           request.headers.get("Mcp-Session-Id") ||
           randomUUID();
 
-        return createMCPStdioProxy(request, "npx", ["-y", "hevy-mcp"], {
-          env: {
-            HEVY_API_KEY: "e1fa3a63-c7c2-4335-9753-042bd9028330",
-          },
+        // Use the saved local file instead of command
+        const executablePath = `./integrations/${slug}/main`;
+
+        return createMCPStdioProxy(request, executablePath, args, {
+          env,
           sessionId,
         });
       }

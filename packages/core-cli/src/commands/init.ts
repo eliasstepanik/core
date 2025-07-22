@@ -6,6 +6,8 @@ import { printCoreBrainLogo } from "../utils/ascii.js";
 import { setupEnvFile } from "../utils/env.js";
 import { hasTriggerConfig } from "../utils/env-checker.js";
 import { getDockerCompatibleEnvVars } from "../utils/env-docker.js";
+import { handleDockerLogin } from "../utils/docker-login.js";
+import { deployTriggerTasks } from "../utils/trigger-deploy.js";
 import path from "path";
 
 export async function initCommand() {
@@ -36,6 +38,8 @@ export async function initCommand() {
   const rootDir = process.cwd();
   const triggerDir = path.join(rootDir, "trigger");
   const webappDir = path.join(rootDir, "apps", "webapp");
+  const databaseDir = path.join(rootDir, "packages", "database");
+  const typesDir = path.join(rootDir, "packages", "types");
 
   try {
     // Step 2: Setup .env file in root
@@ -225,89 +229,12 @@ export async function initCommand() {
       }
     }
 
-    // Step 13: Show docker login instructions
+    // Step 13: Handle Docker login
     note("Run the following command to login to Docker registry:", "🐳 Docker Registry Login");
-
-    try {
-      // Read env file to get docker registry details
-      const envContent = await import("fs").then((fs) =>
-        fs.promises.readFile(triggerEnvPath, "utf8")
-      );
-      const envLines = envContent.split("\n");
-
-      const getEnvValue = (key: string) => {
-        const line = envLines.find((l) => l.startsWith(`${key}=`));
-        return line ? line.split("=")[1] : "";
-      };
-
-      const dockerRegistryUrl = getEnvValue("DOCKER_REGISTRY_URL");
-      const dockerRegistryUsername = getEnvValue("DOCKER_REGISTRY_USERNAME");
-      const dockerRegistryPassword = getEnvValue("DOCKER_REGISTRY_PASSWORD");
-
-      log.info(
-        `docker login -u ${dockerRegistryUsername} -p ${dockerRegistryPassword} ${dockerRegistryUrl} `
-      );
-    } catch (error) {
-      log.info("docker login -u <USERNAME> -p <PASSWORD> <REGISTRY_URL>");
-    }
-
-    const dockerLoginConfirmed = await confirm({
-      message: "Have you completed the Docker login successfully?",
-    });
-
-    if (!dockerLoginConfirmed) {
-      outro("❌ Setup cancelled. Please complete Docker login first and run the command again.");
-      process.exit(1);
-    }
+    await handleDockerLogin(triggerEnvPath);
 
     // Step 14: Deploy Trigger.dev tasks
-    note(
-      "We'll now deploy the trigger tasks to your Trigger.dev instance.",
-      "🚀 Deploying Trigger.dev tasks"
-    );
-
-    try {
-      // Login to trigger.dev CLI
-      await executeCommandInteractive(
-        "npx -y trigger.dev@4.0.0-v4-beta.22 login -a http://localhost:8030",
-        {
-          cwd: rootDir,
-          message: "Logging in to Trigger.dev CLI...",
-          showOutput: true,
-        }
-      );
-
-      await executeCommandInteractive("pnpm install", {
-        cwd: rootDir,
-        message: "Running package installation",
-        showOutput: true,
-      });
-
-      await executeCommandInteractive("pnpm build --filter=@core/types --filter=@core/database", {
-        cwd: rootDir,
-        message: "Building @core/types and @core/database with turbo...",
-        showOutput: true,
-      });
-
-      // Deploy trigger tasks
-      const envVars = await getDockerCompatibleEnvVars(rootDir);
-
-      console.log(envVars);
-      await executeCommandInteractive("pnpm run trigger:deploy", {
-        cwd: webappDir,
-        message: "Deploying Trigger.dev tasks...",
-        showOutput: true,
-        env: envVars,
-      });
-
-      log.success("Trigger.dev tasks deployed successfully!");
-    } catch (error: any) {
-      log.warning("Failed to deploy Trigger.dev tasks:");
-      note(
-        `${error.message}\n\nYou can deploy them manually later with:\n1. npx trigger.dev@v4-beta login -a http://localhost:8030\n2. pnpm trigger:deploy`,
-        "Manual Deployment"
-      );
-    }
+    await deployTriggerTasks(rootDir);
 
     // Step 15: Final instructions
     outro("🎉 Setup Complete!");

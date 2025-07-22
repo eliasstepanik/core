@@ -83,7 +83,6 @@ export class OAuth2Service {
 
   // Validate redirect URI
   validateRedirectUri(client: any, redirectUri: string): boolean {
-    console.log(redirectUri);
     const allowedUris = client.redirectUris
       .split(",")
       .map((uri: string) => uri.trim());
