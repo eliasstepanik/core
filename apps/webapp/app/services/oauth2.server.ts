@@ -105,11 +105,74 @@ export class OAuth2Service {
     return false;
   }
 
+  // Validate scopes against client's allowed scopes
+  validateScopes(client: any, requestedScopes: string): boolean {
+    const allowedScopes = client.allowedScopes
+      .split(",")
+      .map((s: string) => s.trim());
+    const requestedScopeArray = requestedScopes
+      .split(",")
+      .map((s: string) => s.trim());
+
+    return requestedScopeArray.every((scope) => allowedScopes.includes(scope));
+  }
+
+  // Determine scope type for routing (simplified)
+  getScopeType(scope: string): "auth" | "integration" | "mixed" {
+    const scopes = scope.split(",").map((s) => s.trim());
+
+    // Google-style auth scopes
+    const authScopes = ["profile", "email", "openid"];
+    // Single integration scope
+    const integrationScopes = ["integration"];
+
+    const hasAuthScopes = scopes.some((s) => authScopes.includes(s));
+    const hasIntegrationScopes = scopes.some((s) =>
+      integrationScopes.includes(s),
+    );
+
+    if (hasAuthScopes && hasIntegrationScopes) {
+      return "mixed";
+    } else if (hasAuthScopes) {
+      return "auth";
+    } else if (hasIntegrationScopes) {
+      return "integration";
+    }
+
+    // Default to auth for unknown scopes
+    return "auth";
+  }
+
+  // Get scope descriptions for UI
+  getScopeDescriptions(
+    scopes: string[],
+  ): Array<{ scope: string; description: string; icon: string }> {
+    const scopeMap: Record<string, { description: string; icon: string }> = {
+      profile: {
+        description: "Access your profile information",
+        icon: "user",
+      },
+      email: { description: "Access your email address", icon: "mail" },
+      openid: { description: "Verify your identity", icon: "shield" },
+      integration: {
+        description: "Access your workspace integrations",
+        icon: "database",
+      },
+    };
+
+    return scopes.map((scope) => ({
+      scope,
+      description: scopeMap[scope]?.description || `Access to ${scope}`,
+      icon: scopeMap[scope]?.icon || "align-left",
+    }));
+  }
+
   // Create authorization code
   async createAuthorizationCode(params: {
     clientId: string;
     userId: string;
     redirectUri: string;
+    workspaceId: string;
     scope?: string;
     state?: string;
     codeChallenge?: string;
@@ -138,6 +201,7 @@ export class OAuth2Service {
         state: params.state,
         codeChallenge: params.codeChallenge,
         codeChallengeMethod: params.codeChallengeMethod,
+        workspaceId: params.workspaceId,
         expiresAt,
       },
     });
@@ -220,6 +284,7 @@ export class OAuth2Service {
         userId: authCode.userId,
         scope: authCode.scope,
         expiresAt: accessTokenExpiresAt,
+        workspaceId: authCode.workspaceId,
       },
     });
 
@@ -230,6 +295,17 @@ export class OAuth2Service {
         userId: authCode.userId,
         scope: authCode.scope,
         expiresAt: refreshTokenExpiresAt,
+        workspaceId: authCode.workspaceId,
+      },
+    });
+
+    await prisma.oAuthClientInstallation.create({
+      data: {
+        oauthClientId: client.id,
+        workspaceId: authCode.workspaceId,
+        installedById: authCode.userId,
+        isActive: true,
+        grantedScopes: authCode.scope,
       },
     });
 
@@ -243,12 +319,13 @@ export class OAuth2Service {
   }
 
   // Validate access token
-  async validateAccessToken(token: string): Promise<any> {
+  async validateAccessToken(token: string, scopes?: string[]): Promise<any> {
     const accessToken = await prisma.oAuthAccessToken.findFirst({
       where: {
         token,
         revoked: false,
         expiresAt: { gt: new Date() },
+        ...(scopes ? { scope: { contains: scopes.join(",") } } : {}),
       },
       include: {
         client: true,
@@ -311,7 +388,7 @@ export class OAuth2Service {
 
     // Generate new access token
     const accessToken = this.generateSecureToken(64);
-    const expiresIn = 3600; // 1 hour
+    const expiresIn = 86400; // 1 day
     const accessTokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
 
     await prisma.oAuthAccessToken.create({
@@ -321,6 +398,7 @@ export class OAuth2Service {
         userId: storedRefreshToken.userId,
         scope: storedRefreshToken.scope,
         expiresAt: accessTokenExpiresAt,
+        workspaceId: storedRefreshToken.workspaceId,
       },
     });
 
