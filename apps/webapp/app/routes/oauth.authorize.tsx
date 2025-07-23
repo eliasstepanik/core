@@ -10,26 +10,12 @@ import {
   OAuth2Errors,
   type OAuth2AuthorizeRequest,
 } from "~/services/oauth2.server";
-import { getIntegrationAccounts } from "~/services/integrationAccount.server";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Arrows } from "~/components/icons";
 import Logo from "~/components/logo/logo";
 import { AlignLeft, LayoutGrid, Pen, User, Mail, Shield, Database } from "lucide-react";
 
-// Helper function to convert integration definition IDs to account IDs
-async function convertDefIdsToAccountIds(defIds: string[], userId: string): Promise<string[]> {
-  const integrationAccounts = await getIntegrationAccounts(userId);
-  const defToAccountMap = new Map(
-    integrationAccounts
-      .filter(acc => acc.isActive)
-      .map(acc => [acc.integrationDefinitionId, acc.id])
-  );
-  
-  return defIds
-    .map(defId => defToAccountMap.get(defId))
-    .filter(Boolean) as string[];
-}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if user is authenticated

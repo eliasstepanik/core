@@ -14,6 +14,7 @@ export interface WebhookTarget {
   url: string;
   secret?: string | null;
   headers?: Record<string, string>;
+  accountId?: string;
 }
 
 // Delivery result
@@ -51,7 +52,10 @@ export async function deliverWebhook(params: WebhookDeliveryParams): Promise<{
     userAgent = "Core-Webhooks/1.0",
     eventType,
   } = params;
-  const payloadString = JSON.stringify(payload);
+  const payloadString = JSON.stringify({
+    ...payload,
+    accountId: payload.accountId,
+  });
   const deliveryResults: DeliveryResult[] = [];
 
   logger.log(`Delivering ${eventType} webhook to ${targets.length} targets`);
@@ -154,10 +158,11 @@ export async function deliverWebhook(params: WebhookDeliveryParams): Promise<{
  * Helper function to prepare webhook targets from basic URL/secret pairs
  */
 export function prepareWebhookTargets(
-  webhooks: Array<{ url: string; secret?: string | null }>,
+  webhooks: Array<{ url: string; secret?: string | null; id: string }>,
 ): WebhookTarget[] {
   return webhooks.map((webhook) => ({
     url: webhook.url,
     secret: webhook.secret,
+    accountId: webhook.id,
   }));
 }

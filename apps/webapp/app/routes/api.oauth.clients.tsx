@@ -89,17 +89,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Validate scopes
     const validScopes = [
       // Authentication scopes (Google-style)
-      'profile', 'email', 'openid',
+      "profile",
+      "email",
+      "openid",
       // Integration scope
-      'integration'
+      "integration",
     ];
 
-    const requestedScopes = Array.isArray(allowedScopes) ? allowedScopes : [allowedScopes || 'read'];
-    const invalidScopes = requestedScopes.filter(scope => !validScopes.includes(scope));
-    
+    const requestedScopes = Array.isArray(allowedScopes)
+      ? allowedScopes
+      : [allowedScopes || "read"];
+    const invalidScopes = requestedScopes.filter(
+      (scope) => !validScopes.includes(scope),
+    );
+
     if (invalidScopes.length > 0) {
       return json(
-        { error: `Invalid scopes: ${invalidScopes.join(', ')}. Valid scopes are: ${validScopes.join(', ')}` },
+        {
+          error: `Invalid scopes: ${invalidScopes.join(", ")}. Valid scopes are: ${validScopes.join(", ")}`,
+        },
         { status: 400 },
       );
     }
@@ -112,6 +120,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (!userRecord?.Workspace) {
       return json({ error: "No workspace found" }, { status: 404 });
+    }
+
+    if (!userRecord?.admin) {
+      return json({ error: "No access to create OAuth app" }, { status: 404 });
     }
 
     // Generate client credentials

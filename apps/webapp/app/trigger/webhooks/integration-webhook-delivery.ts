@@ -99,8 +99,9 @@ export const integrationWebhookTask = task({
       const targets: WebhookTarget[] = oauthClients
         .filter((client) => client.oauthClient?.webhookUrl)
         .map((client) => ({
-          url: `${client.oauthClient?.webhookUrl}/${payload.userId}`,
+          url: `${client.oauthClient?.webhookUrl}`,
           secret: client.oauthClient?.webhookSecret,
+          accountId: client.id,
         }));
 
       // Use common delivery function
