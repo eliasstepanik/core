@@ -30,7 +30,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const url = new URL(request.url);
-  let scopeParam = url.searchParams.get("scope") || undefined;
+  let scopeParam = url.searchParams.get("scope") || "mcp";
 
   // If scope is present, normalize it to comma-separated format
   // Handle both space-separated (from URL encoding) and comma-separated scopes
