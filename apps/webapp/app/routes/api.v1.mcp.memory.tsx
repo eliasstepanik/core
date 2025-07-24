@@ -35,7 +35,6 @@ setInterval(
 
 // MCP request body schema
 const MCPRequestSchema = z.object({}).passthrough();
-
 const SourceParams = z.object({
   source: z.string().optional(),
 });
@@ -63,7 +62,9 @@ const handleMCPRequest = async (
 ) => {
   const sessionId = request.headers.get("mcp-session-id") as string | undefined;
   const source =
-    request.headers.get("source") || (params.source as string | undefined);
+    (request.headers.get("source") as string | undefined) ??
+    (params.source as string | undefined);
+
   if (!source) {
     return json(
       {
@@ -257,7 +258,12 @@ const { action, loader } = createHybridActionApiRoute(
     const method = request.method;
 
     if (method === "POST") {
-      return await handleMCPRequest(request, body, authentication, searchParams);
+      return await handleMCPRequest(
+        request,
+        body,
+        authentication,
+        searchParams,
+      );
     } else if (method === "DELETE") {
       return await handleDelete(request, authentication);
     } else {
