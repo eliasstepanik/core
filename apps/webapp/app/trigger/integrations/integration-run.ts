@@ -343,6 +343,7 @@ async function handleMessageResponse(
       responses.account = account;
     }
 
+    const unhandled: Message[] = [];
     // Warn for unknown message types
     for (const type of Object.keys(grouped)) {
       if (!["activity", "state", "identifier", "account"].includes(type)) {
