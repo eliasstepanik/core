@@ -76,7 +76,7 @@ export const integrationWebhookTask = task({
           integration: {
             id: integrationAccount.id,
             provider: integrationAccount.integrationDefinition.slug,
-            mcp_endpoint: mcpEndpoint,
+            mcpEndpoint: mcpEndpoint,
             name: integrationAccount.integrationDefinition.name,
             icon: integrationAccount.integrationDefinition.icon,
           },
