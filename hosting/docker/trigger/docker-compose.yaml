@@ -6,6 +6,22 @@ x-logging: &logging-config
     compress: ${LOGGING_COMPRESS:-true}
 
 services:
+  init:
+    container_name: trigger-init
+    image: redplanethq/init:${CORE_VERSION}
+    restart: "no" # prevent retries
+    environment:
+      - VERSION=${CORE_VERSION}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - TRIGGER_DB=${TRIGGER_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TRIGGER_TASKS_IMAGE=${TRIGGER_TASKS_IMAGE}
+      - NODE_ENV=production
+    networks:
+      - webapp
+
   webapp:
     container_name: trigger-webapp
     image: ghcr.io/triggerdotdev/trigger.dev:${TRIGGER_IMAGE_TAG:-v4-beta}
@@ -14,7 +30,11 @@ services:
     ports:
       - ${WEBAPP_PUBLISH_IP:-0.0.0.0}:8030:3000
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_started
+      init:
+        condition: service_started
+
     networks:
       - webapp
       - supervisor

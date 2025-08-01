@@ -1,21 +1,6 @@
 version: "3.8"
 
 services:
-  init:
-    container_name: core-init
-    image: redplanethq/init:${VERSION}
-    environment:
-      - VERSION=${VERSION}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - TRIGGER_DB=${TRIGGER_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - TRIGGER_TASKS_IMAGE=${TRIGGER_TASKS_IMAGE}
-      - NODE_ENV=${NODE_ENV}
-    networks:
-      - core
-
   core:
     container_name: core-app
     image: redplanethq/core:${VERSION}
@@ -91,6 +76,8 @@ services:
     image: neo4j:5
     environment:
       - NEO4J_AUTH=${NEO4J_AUTH}
+      - NEO4J_dbms_security_procedures_unrestricted=gds.*
+      - NEO4J_dbms_security_procedures_allowlist=gds.*
     ports:
       - "7474:7474"
       - "7687:7687"
