@@ -18,35 +18,30 @@ export default function Dashboard() {
 
   // State for nodeLinks and loading
   const [nodeLinks, setNodeLinks] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchNodeLinks() {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          "/node-links?userId=" +
-            encodeURIComponent("cmc0x85jv0000nu1wiu1yla73"),
-        );
-        if (!res.ok) throw new Error("Failed to fetch node links");
-        const data = await res.json();
-        if (!cancelled) {
-          setNodeLinks(data);
-          setLoading(false);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setNodeLinks([]);
-          setLoading(false);
-        }
-      }
+    if (!loading && userId) {
+      fetchNodeLinks();
     }
-    fetchNodeLinks();
-    return () => {
-      cancelled = true;
-    };
   }, [userId]);
+
+  const fetchNodeLinks = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        "/node-links?userId=" + encodeURIComponent(userId),
+      );
+      if (!res.ok) throw new Error("Failed to fetch node links");
+      const data = await res.json();
+
+      setNodeLinks(data);
+      setLoading(false);
+    } catch (e) {
+      setNodeLinks([]);
+      setLoading(false);
+    }
+  };
 
   return (
     <>
