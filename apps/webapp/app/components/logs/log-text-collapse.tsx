@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
 import { Badge } from "../ui/badge";
-import { LogItem } from "~/hooks/use-logs";
+import { type LogItem } from "~/hooks/use-logs";
 
 interface LogTextCollapseProps {
   text?: string;
