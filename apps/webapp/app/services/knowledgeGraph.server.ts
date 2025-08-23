@@ -112,13 +112,17 @@ export class KnowledgeGraphService {
         sessionContext,
       );
 
+      console.log("Normalized episode body:", normalizedEpisodeBody);
       const relatedEpisodesEntities = await getRelatedEpisodesEntities({
         embedding: await this.getEmbedding(normalizedEpisodeBody),
         userId: params.userId,
         minSimilarity: 0.7,
       });
 
-      if (normalizedEpisodeBody === "NOTHING_TO_REMEMBER") {
+      if (
+        normalizedEpisodeBody === "NOTHING_TO_REMEMBER" ||
+        normalizedEpisodeBody === ""
+      ) {
         logger.log("Nothing to remember");
         return {
           episodeUuid: null,
@@ -161,6 +165,15 @@ export class KnowledgeGraphService {
         episode,
       );
 
+      console.log(
+        "Categorized entities:",
+        categorizedEntities.primary.map(
+          (entity) => `primary: ${entity.name} - ${entity.type}`,
+        ),
+        categorizedEntities.expanded.map(
+          (entity) => `expanded: ${entity.name} - ${entity.type}`,
+        ),
+      );
       // Step 4: Statement Extrraction - Extract statements (triples) instead of direct edges
       const extractedStatements = await this.extractStatements(
         episode,
@@ -416,13 +429,32 @@ export class KnowledgeGraphService {
         const predicateNode = predicateMap.get(triple.predicate.toLowerCase());
 
         if (subjectNode && objectNode && predicateNode) {
+          // Determine the correct validAt date (when the fact actually occurred/occurs)
+          let validAtDate = episode.validAt; // Default fallback to episode date
+
+          // Check if statement has event_date indicating when the fact actually happened/happens
+          if (triple.attributes?.event_date) {
+            try {
+              const eventDate = new Date(triple.attributes.event_date);
+              // Use the event date as validAt (when the fact is actually true)
+              if (!isNaN(eventDate.getTime())) {
+                validAtDate = eventDate;
+              }
+            } catch (error) {
+              // If parsing fails, use episode validAt as fallback
+              logger.log(
+                `Failed to parse event_date: ${triple.attributes.event_date}, using episode validAt`,
+              );
+            }
+          }
+
           // Create a statement node
           const statement: StatementNode = {
             uuid: crypto.randomUUID(),
             fact: triple.fact,
             factEmbedding: factEmbeddings[tripleIndex],
-            createdAt: new Date(),
-            validAt: episode.validAt,
+            createdAt: new Date(), // System timestamp when we processed this
+            validAt: validAtDate, // When the fact actually happened/happens
             invalidAt: null,
             attributes: triple.attributes || {},
             userId: episode.userId,
@@ -920,10 +952,12 @@ export class KnowledgeGraphService {
         responseText = text;
       });
 
+      console.log("Response text:", responseText);
       try {
         // Extract the JSON response from the output tags
         const jsonMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
         const analysisResult = jsonMatch ? JSON.parse(jsonMatch[1]) : [];
+        console.log("Analysis result:", analysisResult);
 
         // Process the analysis results
         for (const result of analysisResult) {
@@ -1110,7 +1144,8 @@ export class KnowledgeGraphService {
       source,
       relatedMemories,
       ingestionRules,
-      episodeTimestamp: episodeTimestamp?.toISOString(),
+      episodeTimestamp:
+        episodeTimestamp?.toISOString() || new Date().toISOString(),
       sessionContext,
     };
     const messages = normalizePrompt(context);
@@ -1122,6 +1157,30 @@ export class KnowledgeGraphService {
     const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
     if (outputMatch && outputMatch[1]) {
       normalizedEpisodeBody = outputMatch[1].trim();
+    } else {
+      // Log format violation and use fallback
+      logger.warn("Normalization response missing <output> tags", {
+        responseText: responseText.substring(0, 200) + "...",
+        source,
+        episodeLength: episodeBody.length,
+      });
+
+      // Fallback: use raw response if it's not empty and seems meaningful
+      const trimmedResponse = responseText.trim();
+      if (
+        trimmedResponse &&
+        trimmedResponse !== "NOTHING_TO_REMEMBER" &&
+        trimmedResponse.length > 10
+      ) {
+        normalizedEpisodeBody = trimmedResponse;
+        logger.info("Using raw response as fallback for normalization", {
+          fallbackLength: trimmedResponse.length,
+        });
+      } else {
+        logger.warn("No usable normalization content found", {
+          responseText: responseText,
+        });
+      }
     }
 
     return normalizedEpisodeBody;

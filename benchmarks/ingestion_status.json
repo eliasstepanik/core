@@ -2,11 +2,39 @@
   "conversations": {
     "locomo_1": {
       "ingested": true,
-      "timestamp": "2025-08-12T05:31:39.437Z",
+      "timestamp": "2025-08-22T14:47:13.572Z",
       "totalEpisodes": 419,
       "successCount": 419,
       "errorCount": 0
+    },
+    "locomo_2": {
+      "ingested": true,
+      "timestamp": "2025-08-22T14:50:26.625Z",
+      "totalEpisodes": 369,
+      "successCount": 369,
+      "errorCount": 0
+    },
+    "locomo_3": {
+      "ingested": true,
+      "timestamp": "2025-08-22T14:55:30.262Z",
+      "totalEpisodes": 663,
+      "successCount": 663,
+      "errorCount": 0
+    },
+    "locomo_4": {
+      "ingested": true,
+      "timestamp": "2025-08-22T15:00:02.753Z",
+      "totalEpisodes": 629,
+      "successCount": 629,
+      "errorCount": 0
+    },
+    "locomo_5": {
+      "ingested": true,
+      "timestamp": "2025-08-22T15:04:17.340Z",
+      "totalEpisodes": 680,
+      "successCount": 680,
+      "errorCount": 0
     }
   },
-  "timestamp": "2025-08-12T05:31:39.441Z"
+  "timestamp": "2025-08-22T15:04:17.340Z"
 }

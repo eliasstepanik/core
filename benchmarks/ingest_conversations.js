@@ -11,10 +11,10 @@ const axios = require("axios");
  */
 
 class LocomoIngester {
-  constructor(baseUrl = process.env.BASE_URL) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    this.baseUrl = "http://3.95.55.23:3033";
     this.headers = {
-      Authorization: `Bearer ${process.env.API_KEY}`,
+      Authorization: `Bearer rc_pat_kbc76ykt3gd81r6ctyeh8as5jryihbeqqvnsi2wt`,
     };
     this.statusFile = path.join(__dirname, "ingestion_status.json");
 
@@ -73,6 +73,7 @@ class LocomoIngester {
       return false;
     }
 
+    console.log(`BASE URL: ${this.baseUrl} ${process.env.BASE_URL}`);
     console.log(`Ingesting conversation ${conversationId}...`);
 
     const episodes = this.formatConversationForIngestion(conversation, conversationId);
@@ -131,7 +132,12 @@ class LocomoIngester {
 
     // Process each session
     Object.keys(conv).forEach((key) => {
-      if (key.startsWith("session_") && !key.endsWith("_date_time")) {
+      if (
+        key.startsWith("session_") &&
+        !key.endsWith("_date_time")
+        // ["session_1"].includes(key)
+      ) {
+        console.log(`Processing session ${key}`);
         const sessionNumber = key.replace("session_", "");
         const sessionData = conv[key];
         const sessionDateTime = conv[`session_${sessionNumber}_date_time`];
@@ -139,7 +145,7 @@ class LocomoIngester {
         if (Array.isArray(sessionData)) {
           sessionData.forEach((dialog, dialogIndex) => {
             episodes.push({
-              content: `${dialog.speaker}: ${dialog.blip_caption ? `Shared ${dialog.blip_caption}.` : ""} ${dialog.text}`,
+              content: `${dialog.speaker}: ${dialog.blip_caption ? `Shared ${dialog.blip_caption}. ${dialog.query}.` : ""} ${dialog.text}`,
               metadata: {
                 conversationId,
                 sessionNumber: parseInt(sessionNumber),
@@ -215,7 +221,7 @@ class LocomoIngester {
 
     // Ingest each conversation
     for (let i = 0; i < conversations.length; i++) {
-      if (i === 0) {
+      if (i === 4) {
         const conversation = conversations[i];
         const conversationId = `locomo_${i + 1}`;
 

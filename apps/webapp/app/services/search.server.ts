@@ -5,6 +5,7 @@ import {
   applyMultiFactorReranking,
   applyMultiFactorMMRReranking,
   applyWeightedRRF,
+  applyCohereReranking,
 } from "./search/rerank";
 import {
   getEpisodesByStatements,
@@ -15,6 +16,8 @@ import {
 import { getEmbedding } from "~/lib/model.server";
 import { prisma } from "~/db.server";
 import { runQuery } from "~/lib/neo4j.server";
+import { env } from "~/env.server";
+import { getEpisodeStatements } from "./graphModels/episode";
 
 /**
  * SearchService provides methods to search the reified + temporal knowledge graph
@@ -36,7 +39,7 @@ export class SearchService {
     query: string,
     userId: string,
     options: SearchOptions = {},
-  ): Promise<{ episodes: string[]; facts: string[] }> {
+  ): Promise<{ episodes: string[]; facts: string[]; relatedFacts: string[] }> {
     const startTime = Date.now();
     // Default options
 
@@ -49,7 +52,7 @@ export class SearchService {
       includeInvalidated: options.includeInvalidated || false,
       entityTypes: options.entityTypes || [],
       predicateTypes: options.predicateTypes || [],
-      scoreThreshold: options.scoreThreshold || 0.7,
+      scoreThreshold: options.scoreThreshold || 0.3,
       minResults: options.minResults || 10,
       spaceIds: options.spaceIds || [],
     };
@@ -81,6 +84,17 @@ export class SearchService {
     // 3. Return top results
     const episodes = await getEpisodesByStatements(filteredResults);
 
+    const relatedFacts: StatementNode[] = [];
+    await Promise.all(
+      episodes.map((episode) => {
+        return getEpisodeStatements({ episodeUuid: episode.uuid, userId }).then(
+          (facts) => {
+            relatedFacts.push(...facts);
+          },
+        );
+      }),
+    );
+
     // Log recall asynchronously (don't await to avoid blocking response)
     const responseTime = Date.now() - startTime;
     this.logRecallAsync(
@@ -93,11 +107,12 @@ export class SearchService {
       logger.error("Failed to log recall event:", error);
     });
 
-    this.updateRecallCount(userId, episodes, filteredResults);
+    // this.updateRecallCount(userId, episodes, filteredResults);
 
     return {
       episodes: episodes.map((episode) => episode.content),
       facts: filteredResults.map((statement) => statement.fact),
+      relatedFacts: relatedFacts.map((fact) => fact.fact),
     };
   }
 
@@ -110,6 +125,10 @@ export class SearchService {
     options: Required<SearchOptions>,
   ): StatementNode[] {
     if (results.length === 0) return [];
+
+    if (results.length <= 5) {
+      return results;
+    }
 
     let isRRF = false;
     // Extract scores from results
@@ -131,6 +150,8 @@ export class SearchService {
         score = (result as any).combinedScore;
       } else if ((result as any).mmrScore !== undefined) {
         score = (result as any).mmrScore;
+      } else if ((result as any).cohereScore !== undefined) {
+        score = (result as any).cohereScore;
       }
 
       return { result, score };
@@ -228,6 +249,11 @@ export class SearchService {
       results.vector.length > 0,
       results.bfs.length > 0,
     ].filter(Boolean).length;
+
+    if (env.COHERE_API_KEY) {
+      logger.info("Using Cohere reranking");
+      return applyCohereReranking(query, results, options);
+    }
 
     // If results are coming from only one source, use cross-encoder reranking
     if (nonEmptySources <= 1) {

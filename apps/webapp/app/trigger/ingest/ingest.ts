@@ -70,12 +70,12 @@ export const ingestTask = task({
           episodeId: episodeDetails?.episodeUuid,
         });
         if (episodeDetails.episodeUuid) {
-          await triggerSpaceAssignment({
-            userId: payload.userId,
-            workspaceId: payload.workspaceId,
-            mode: "episode",
-            episodeId: episodeDetails.episodeUuid,
-          });
+          // await triggerSpaceAssignment({
+          //   userId: payload.userId,
+          //   workspaceId: payload.workspaceId,
+          //   mode: "episode",
+          //   episodeId: episodeDetails.episodeUuid,
+          // });
         }
       } catch (assignmentError) {
         // Don't fail the ingestion if assignment fails
