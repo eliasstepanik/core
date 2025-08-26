@@ -112,17 +112,10 @@ export class KnowledgeGraphService {
         sessionContext,
       );
 
-      console.log("Normalized episode body:", normalizedEpisodeBody);
-      const relatedEpisodesEntities = await getRelatedEpisodesEntities({
-        embedding: await this.getEmbedding(normalizedEpisodeBody),
-        userId: params.userId,
-        minSimilarity: 0.7,
-      });
+      const normalizedTime = Date.now() - startTime;
+      logger.log(`Normalized episode body in ${normalizedTime} ms`);
 
-      if (
-        normalizedEpisodeBody === "NOTHING_TO_REMEMBER" ||
-        normalizedEpisodeBody === ""
-      ) {
+      if (normalizedEpisodeBody === "NOTHING_TO_REMEMBER") {
         logger.log("Nothing to remember");
         return {
           episodeUuid: null,
@@ -130,6 +123,17 @@ export class KnowledgeGraphService {
           processingTimeMs: 0,
         };
       }
+
+      const relatedEpisodesEntities = await getRelatedEpisodesEntities({
+        embedding: await this.getEmbedding(normalizedEpisodeBody),
+        userId: params.userId,
+        minSimilarity: 0.7,
+      });
+
+      const relatedTime = Date.now();
+      logger.log(
+        `Related episodes entities in ${relatedTime - normalizedTime} ms`,
+      );
 
       // Step 2: Episode Creation - Create or retrieve the episode
       const episode: EpisodicNode = {
@@ -153,6 +157,9 @@ export class KnowledgeGraphService {
         previousEpisodes,
       );
 
+      const extractedTime = Date.now();
+      logger.log(`Extracted entities in ${extractedTime - relatedTime} ms`);
+
       // Step 3.1: Context-aware entity resolution with preset type evolution
       await this.resolveEntitiesWithContext(
         extractedNodes,
@@ -165,15 +172,9 @@ export class KnowledgeGraphService {
         episode,
       );
 
-      console.log(
-        "Categorized entities:",
-        categorizedEntities.primary.map(
-          (entity) => `primary: ${entity.name} - ${entity.type}`,
-        ),
-        categorizedEntities.expanded.map(
-          (entity) => `expanded: ${entity.name} - ${entity.type}`,
-        ),
-      );
+      const expandedTime = Date.now();
+      logger.log(`Expanded entities in ${expandedTime - extractedTime} ms`);
+
       // Step 4: Statement Extrraction - Extract statements (triples) instead of direct edges
       const extractedStatements = await this.extractStatements(
         episode,
@@ -181,11 +182,21 @@ export class KnowledgeGraphService {
         previousEpisodes,
       );
 
+      const extractedStatementsTime = Date.now();
+      logger.log(
+        `Extracted statements in ${extractedStatementsTime - expandedTime} ms`,
+      );
+
       // Step 5: Entity Resolution - Resolve extracted nodes to existing nodes or create new ones
       const resolvedTriples = await this.resolveExtractedNodes(
         extractedStatements,
         episode,
         previousEpisodes,
+      );
+
+      const resolvedTriplesTime = Date.now();
+      logger.log(
+        `Resolved Entities in ${resolvedTriplesTime - extractedStatementsTime} ms`,
       );
 
       // Step 6: Statement Resolution - Resolve statements and detect contradictions
@@ -196,10 +207,20 @@ export class KnowledgeGraphService {
           previousEpisodes,
         );
 
+      const resolvedStatementsTime = Date.now();
+      logger.log(
+        `Resolved statements in ${resolvedStatementsTime - resolvedTriplesTime} ms`,
+      );
+
       // Step 7: ADd attributes to entity nodes
       const updatedTriples = await this.addAttributesToEntities(
         resolvedStatements,
         episode,
+      );
+
+      const updatedTriplesTime = Date.now();
+      logger.log(
+        `Updated triples in ${updatedTriplesTime - resolvedStatementsTime} ms`,
       );
 
       for (const triple of updatedTriples) {
@@ -227,6 +248,9 @@ export class KnowledgeGraphService {
 
       // Save triples in parallel for better performance
       await Promise.all(updatedTriples.map((triple) => saveTriple(triple)));
+
+      const saveTriplesTime = Date.now();
+      logger.log(`Saved triples in ${saveTriplesTime - updatedTriplesTime} ms`);
 
       // Invalidate invalidated statements
       await invalidateStatements({ statementIds: invalidatedStatements });

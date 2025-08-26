@@ -515,9 +515,6 @@ export async function applyCohereReranking(
       .filter((result) => result.cohereScore > 0.3);
 
     const responseTime = Date.now() - startTime;
-    console.log(
-      rerankedResults.map((result) => `${result.fact} - ${result.cohereScore}`),
-    );
     logger.info(
       `Cohere reranking completed: ${rerankedResults.length} results returned in ${responseTime}ms`,
     );

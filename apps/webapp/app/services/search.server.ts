@@ -39,7 +39,7 @@ export class SearchService {
     query: string,
     userId: string,
     options: SearchOptions = {},
-  ): Promise<{ episodes: string[]; facts: string[]; relatedFacts: string[] }> {
+  ): Promise<{ episodes: string[]; facts: { fact: string; validAt: Date }[] }> {
     const startTime = Date.now();
     // Default options
 
@@ -79,7 +79,6 @@ export class SearchService {
 
     // // 3. Apply adaptive filtering based on score threshold and minimum count
     const filteredResults = this.applyAdaptiveFiltering(rankedStatements, opts);
-    // const filteredResults = rankedStatements;
 
     // 3. Return top results
     const episodes = await getEpisodesByStatements(filteredResults);
@@ -97,22 +96,25 @@ export class SearchService {
 
     // Log recall asynchronously (don't await to avoid blocking response)
     const responseTime = Date.now() - startTime;
-    this.logRecallAsync(
-      query,
-      userId,
-      filteredResults,
-      opts,
-      responseTime,
-    ).catch((error) => {
-      logger.error("Failed to log recall event:", error);
-    });
+    logger.info(`Search completed in ${responseTime}ms for query: ${query}`);
+    // this.logRecallAsync(
+    //   query,
+    //   userId,
+    //   filteredResults,
+    //   opts,
+    //   responseTime,
+    // ).catch((error) => {
+    //   logger.error("Failed to log recall event:", error);
+    // });
 
     // this.updateRecallCount(userId, episodes, filteredResults);
 
     return {
       episodes: episodes.map((episode) => episode.content),
-      facts: filteredResults.map((statement) => statement.fact),
-      relatedFacts: relatedFacts.map((fact) => fact.fact),
+      facts: filteredResults.map((statement) => ({
+        fact: statement.fact,
+        validAt: statement.validAt,
+      })),
     };
   }
 
