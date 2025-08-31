@@ -1,5 +1,5 @@
 import { runQuery } from "~/lib/neo4j.server";
-import type { EntityNode, EpisodicNode } from "@core/types";
+import { type EntityNode, EpisodeType, type EpisodicNode } from "@core/types";
 
 export async function saveEpisode(episode: EpisodicNode): Promise<string> {
   const query = `
@@ -82,6 +82,8 @@ export async function getRecentEpisodes(params: {
   userId: string;
   source?: string;
   sessionId?: string;
+  type?: EpisodeType;
+  documentId?: string;
 }): Promise<EpisodicNode[]> {
   let filters = `WHERE e.validAt <= $referenceTime
   AND e.userId = $userId`;
@@ -90,8 +92,12 @@ export async function getRecentEpisodes(params: {
     filters += `\nAND e.source = $source`;
   }
 
-  if (params.sessionId) {
+  if (params.type === EpisodeType.CONVERSATION && params.sessionId) {
     filters += `\nAND e.sessionId = $sessionId`;
+  }
+
+  if (params.type === EpisodeType.DOCUMENT && params.documentId) {
+    filters += `\nAND e.documentId = $documentId`;
   }
 
   const query = `

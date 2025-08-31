@@ -355,6 +355,12 @@ const initializeSchema = async () => {
     await runQuery(
       "CREATE INDEX entity_user_uuid IF NOT EXISTS FOR (n:Entity) ON (n.userId, n.uuid)",
     );
+    await runQuery(
+      "CREATE INDEX episode_user_uuid IF NOT EXISTS FOR (n:Episode) ON (n.userId, n.uuid)",
+    );
+    await runQuery(
+      "CREATE INDEX episode_user_id IF NOT EXISTS FOR (n:Episode) ON (n.userId)",
+    );
 
     // Create vector indexes for semantic search (if using Neo4j 5.0+)
     await runQuery(`

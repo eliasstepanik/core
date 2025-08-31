@@ -1,3 +1,4 @@
+import { EpisodeTypeEnum } from "@core/types";
 import { addToQueue } from "~/lib/ingest.server";
 import { logger } from "~/services/logger.service";
 import { SearchService } from "~/services/search.server";
@@ -115,6 +116,7 @@ async function handleMemoryIngest(args: any) {
         episodeBody: args.message,
         referenceTime: new Date().toISOString(),
         source: args.source,
+        type: EpisodeTypeEnum.CONVERSATION,
       },
       args.userId,
     );

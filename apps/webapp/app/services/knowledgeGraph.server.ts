@@ -6,6 +6,8 @@ import {
   type EpisodicNode,
   type StatementNode,
   type Triple,
+  EpisodeTypeEnum,
+  type EpisodeType,
 } from "@core/types";
 import { logger } from "./logger.service";
 import { ClusteringService } from "./clustering.server";
@@ -48,7 +50,7 @@ import {
   getNodeTypesString,
   isPresetType,
 } from "~/utils/presets/nodes";
-import { normalizePrompt } from "./prompts";
+import { normalizePrompt, normalizeDocumentPrompt } from "./prompts";
 import { type PrismaClient } from "@prisma/client";
 
 // Default number of previous episodes to retrieve for context
@@ -90,6 +92,8 @@ export class KnowledgeGraphService {
         userId: params.userId,
         source: params.source,
         sessionId: params.sessionId,
+        type: params.type,
+        documentId: params.documentId,
       });
 
       // Format session context from previous episodes
@@ -110,6 +114,7 @@ export class KnowledgeGraphService {
         prisma,
         new Date(params.referenceTime),
         sessionContext,
+        params.type,
       );
 
       const normalizedTime = Date.now() - startTime;
@@ -251,9 +256,9 @@ export class KnowledgeGraphService {
       logger.log(`Saved triples in ${saveTriplesTime - updatedTriplesTime} ms`);
 
       // Invalidate invalidated statements
-      await invalidateStatements({ 
-        statementIds: invalidatedStatements, 
-        invalidatedBy: episode.uuid 
+      await invalidateStatements({
+        statementIds: invalidatedStatements,
+        invalidatedBy: episode.uuid,
       });
 
       const endTime = Date.now();
@@ -1146,6 +1151,7 @@ export class KnowledgeGraphService {
     prisma: PrismaClient,
     episodeTimestamp?: Date,
     sessionContext?: string,
+    contentType?: EpisodeType,
   ) {
     let appEnumValues: Apps[] = [];
     if (Apps[source.toUpperCase() as keyof typeof Apps]) {
@@ -1171,7 +1177,12 @@ export class KnowledgeGraphService {
         episodeTimestamp?.toISOString() || new Date().toISOString(),
       sessionContext,
     };
-    const messages = normalizePrompt(context);
+
+    // Route to appropriate normalization prompt based on content type
+    const messages =
+      contentType === EpisodeTypeEnum.DOCUMENT
+        ? normalizeDocumentPrompt(context)
+        : normalizePrompt(context);
     let responseText = "";
     await makeModelCall(false, messages, (text) => {
       responseText = text;

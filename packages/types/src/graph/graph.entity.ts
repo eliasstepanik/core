@@ -1,6 +1,19 @@
-export enum EpisodeType {
-  Conversation = "CONVERSATION",
-  Text = "TEXT",
+/**
+ * Interface for document node in the reified knowledge graph
+ * Documents are parent containers for episodic chunks
+ */
+export interface DocumentNode {
+  uuid: string;
+  title: string;
+  originalContent: string;
+  metadata: Record<string, any>;
+  source: string;
+  userId: string;
+  createdAt: Date;
+  validAt: Date;
+  totalChunks: number;
+  documentId?: string;
+  sessionId?: string;
 }
 
 /**
@@ -21,6 +34,8 @@ export interface EpisodicNode {
   space?: string;
   sessionId?: string;
   recallCount?: number;
+  documentId?: string;
+  chunkIndex?: number; // Index of this chunk within the document
 }
 
 /**
@@ -72,14 +87,31 @@ export interface Triple {
   provenance: EpisodicNode;
 }
 
+export enum EpisodeTypeEnum {
+  CONVERSATION = "CONVERSATION",
+  DOCUMENT = "DOCUMENT",
+}
+
+export const EpisodeType = {
+  CONVERSATION: "CONVERSATION",
+  DOCUMENT: "DOCUMENT",
+};
+
+export type EpisodeType = (typeof EpisodeType)[keyof typeof EpisodeType];
+
 export type AddEpisodeParams = {
   episodeBody: string;
   referenceTime: Date;
-  metadata: Record<string, any>;
+  metadata?: Record<string, any>;
   source: string;
   userId: string;
   spaceId?: string;
   sessionId?: string;
+  type?: EpisodeType;
+  documentTitle?: string;
+  documentId?: string;
+  chunkIndex?: number;
+  chunkContext?: string;
 };
 
 export type AddEpisodeResult = {
