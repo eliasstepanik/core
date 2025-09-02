@@ -101,17 +101,21 @@ export class KnowledgeGraphService {
       };
     }
 
-    logger.log(`Analyzing ${previousStatements.length} statements from previous document version`);
+    logger.log(
+      `Analyzing ${previousStatements.length} statements from previous document version`,
+    );
 
     // Step 2: Generate embedding for new document content
-    const newDocumentEmbedding = await this.getEmbedding(params.newDocumentContent);
+    const newDocumentEmbedding = await this.getEmbedding(
+      params.newDocumentContent,
+    );
 
     // Step 3: For each statement, check if it's still semantically supported by new content
     for (const statement of previousStatements) {
       try {
         // Generate embedding for the statement fact
         const statementEmbedding = await this.getEmbedding(statement.fact);
-        
+
         // Calculate semantic similarity between statement and new document
         const semanticSimilarity = this.calculateCosineSimilarity(
           statementEmbedding,
@@ -120,10 +124,14 @@ export class KnowledgeGraphService {
 
         if (semanticSimilarity < threshold) {
           invalidatedStatements.push(statement.uuid);
-          logger.log(`Invalidating statement: "${statement.fact}" (similarity: ${semanticSimilarity.toFixed(3)})`);
+          logger.log(
+            `Invalidating statement: "${statement.fact}" (similarity: ${semanticSimilarity.toFixed(3)})`,
+          );
         } else {
           preservedStatements.push(statement.uuid);
-          logger.log(`Preserving statement: "${statement.fact}" (similarity: ${semanticSimilarity.toFixed(3)})`);
+          logger.log(
+            `Preserving statement: "${statement.fact}" (similarity: ${semanticSimilarity.toFixed(3)})`,
+          );
         }
       } catch (error) {
         logger.error(`Error analyzing statement ${statement.uuid}:`, { error });
