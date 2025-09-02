@@ -14,6 +14,11 @@ export interface DocumentNode {
   totalChunks: number;
   documentId?: string;
   sessionId?: string;
+  // Version tracking for differential ingestion
+  version: number;
+  contentHash: string;
+  previousVersionUuid?: string;
+  chunkHashes?: string[]; // Hash of each chunk for change detection
 }
 
 /**

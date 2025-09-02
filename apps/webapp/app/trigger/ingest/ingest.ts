@@ -1,6 +1,7 @@
 import { queue, task } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { KnowledgeGraphService } from "~/services/knowledgeGraph.server";
+import { linkEpisodeToDocument } from "~/services/graphModels/document";
 
 import { IngestionStatus } from "@core/database";
 import { logger } from "~/services/logger.service";
@@ -59,6 +60,20 @@ export const ingestTask = task({
         },
         prisma,
       );
+
+      // Link episode to document if it's a document chunk
+      if (episodeBody.type === EpisodeType.DOCUMENT && episodeBody.documentId && episodeDetails.episodeUuid) {
+        try {
+          await linkEpisodeToDocument(
+            episodeDetails.episodeUuid,
+            episodeBody.documentId,
+            episodeBody.chunkIndex || 0,
+          );
+          logger.log(`Linked episode ${episodeDetails.episodeUuid} to document ${episodeBody.documentId} at chunk ${episodeBody.chunkIndex || 0}`);
+        } catch (error) {
+          logger.error(`Failed to link episode to document:`, { error, episodeUuid: episodeDetails.episodeUuid, documentId: episodeBody.documentId });
+        }
+      }
 
       let finalOutput = episodeDetails;
       let episodeUuids: string[] = episodeDetails.episodeUuid

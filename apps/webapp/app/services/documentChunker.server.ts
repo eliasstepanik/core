@@ -8,6 +8,7 @@ export interface DocumentChunk {
   context?: string;
   startPosition: number;
   endPosition: number;
+  contentHash: string; // Hash for change detection
 }
 
 export interface ChunkedDocument {
@@ -16,6 +17,8 @@ export interface ChunkedDocument {
   originalContent: string;
   chunks: DocumentChunk[];
   totalChunks: number;
+  contentHash: string; // Hash of the entire document
+  chunkHashes: string[]; // Array of chunk hashes for change detection
 }
 
 /**
@@ -36,6 +39,7 @@ export class DocumentChunker {
     title: string,
   ): Promise<ChunkedDocument> {
     const documentId = crypto.randomUUID();
+    const contentHash = this.generateContentHash(originalContent);
     
     // First, split by major section headers (markdown style)
     const majorSections = this.splitByMajorSections(originalContent);
@@ -107,12 +111,17 @@ export class DocumentChunker {
       ));
     }
 
+    // Generate chunk hashes array
+    const chunkHashes = chunks.map(chunk => chunk.contentHash);
+
     return {
       documentId,
       title,
       originalContent,
       chunks,
       totalChunks: chunks.length,
+      contentHash,
+      chunkHashes,
     };
   }
 
@@ -235,6 +244,7 @@ export class DocumentChunker {
   ): DocumentChunk {
     // Generate a concise context/title if not provided
     const context = title || this.generateChunkContext(content);
+    const contentHash = this.generateContentHash(content.trim());
     
     return {
       content: content.trim(),
@@ -243,6 +253,7 @@ export class DocumentChunker {
       context: `Chunk ${chunkIndex + 1}${context ? `: ${context}` : ""}`,
       startPosition,
       endPosition,
+      contentHash,
     };
   }
 
@@ -258,5 +269,47 @@ export class DocumentChunker {
     }
     
     return "Document content";
+  }
+
+  /**
+   * Generate content hash for change detection
+   */
+  private generateContentHash(content: string): string {
+    return crypto.createHash('sha256').update(content, 'utf8').digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Compare chunk hashes to detect changes
+   */
+  static compareChunkHashes(oldHashes: string[], newHashes: string[]): {
+    changedIndices: number[];
+    changePercentage: number;
+  } {
+    const maxLength = Math.max(oldHashes.length, newHashes.length);
+    const changedIndices: number[] = [];
+
+    for (let i = 0; i < maxLength; i++) {
+      const oldHash = oldHashes[i];
+      const newHash = newHashes[i];
+      
+      // Mark as changed if hash is different or chunk added/removed
+      if (oldHash !== newHash) {
+        changedIndices.push(i);
+      }
+    }
+
+    const changePercentage = maxLength > 0 ? (changedIndices.length / maxLength) * 100 : 0;
+    
+    return {
+      changedIndices,
+      changePercentage,
+    };
+  }
+
+  /**
+   * Calculate document size in tokens for threshold decisions
+   */
+  static getDocumentSizeInTokens(content: string): number {
+    return encode(content).length;
   }
 }

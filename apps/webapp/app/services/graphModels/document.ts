@@ -1,5 +1,6 @@
 import { runQuery } from "~/lib/neo4j.server";
 import type { DocumentNode } from "@core/types";
+import crypto from "crypto";
 
 export async function saveDocument(document: DocumentNode): Promise<string> {
   const query = `
@@ -14,7 +15,11 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
       d.validAt = $validAt,
       d.totalChunks = $totalChunks,
       d.documentId = $documentId,
-      d.sessionId = $sessionId
+      d.sessionId = $sessionId,
+      d.version = $version,
+      d.contentHash = $contentHash,
+      d.previousVersionUuid = $previousVersionUuid,
+      d.chunkHashes = $chunkHashes
     ON MATCH SET
       d.title = $title,
       d.originalContent = $originalContent,
@@ -23,7 +28,11 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
       d.validAt = $validAt,
       d.totalChunks = $totalChunks,
       d.documentId = $documentId,
-      d.sessionId = $sessionId
+      d.sessionId = $sessionId,
+      d.version = $version,
+      d.contentHash = $contentHash,
+      d.previousVersionUuid = $previousVersionUuid,
+      d.chunkHashes = $chunkHashes
     RETURN d.uuid as uuid
   `;
 
@@ -39,6 +48,10 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
     totalChunks: document.totalChunks || 0,
     documentId: document.documentId || null,
     sessionId: document.sessionId || null,
+    version: document.version || 1,
+    contentHash: document.contentHash,
+    previousVersionUuid: document.previousVersionUuid || null,
+    chunkHashes: document.chunkHashes || [],
   };
 
   const result = await runQuery(query, params);
@@ -94,6 +107,10 @@ export async function getDocument(
     createdAt: new Date(documentNode.properties.createdAt),
     validAt: new Date(documentNode.properties.validAt),
     totalChunks: documentNode.properties.totalChunks,
+    version: documentNode.properties.version || 1,
+    contentHash: documentNode.properties.contentHash || "",
+    previousVersionUuid: documentNode.properties.previousVersionUuid || null,
+    chunkHashes: documentNode.properties.chunkHashes || [],
   };
 }
 
@@ -146,6 +163,92 @@ export async function getUserDocuments(
       createdAt: new Date(documentNode.properties.createdAt),
       validAt: new Date(documentNode.properties.validAt),
       totalChunks: documentNode.properties.totalChunks,
+      version: documentNode.properties.version || 1,
+      contentHash: documentNode.properties.contentHash || "",
+      previousVersionUuid: documentNode.properties.previousVersionUuid || null,
+      chunkHashes: documentNode.properties.chunkHashes || [],
+    };
+  });
+}
+
+/**
+ * Generate content hash for document versioning
+ */
+export function generateContentHash(content: string): string {
+  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+/**
+ * Find existing document by documentId and userId for version comparison
+ */
+export async function findExistingDocument(
+  documentId: string,
+  userId: string,
+): Promise<DocumentNode | null> {
+  const query = `
+    MATCH (d:Document {documentId: $documentId, userId: $userId})
+    RETURN d
+    ORDER BY d.version DESC
+    LIMIT 1
+  `;
+
+  const params = { documentId, userId };
+  const result = await runQuery(query, params);
+
+  if (result.length === 0) return null;
+
+  const documentNode = result[0].get("d");
+  return {
+    uuid: documentNode.properties.uuid,
+    title: documentNode.properties.title,
+    originalContent: documentNode.properties.originalContent,
+    metadata: JSON.parse(documentNode.properties.metadata || "{}"),
+    source: documentNode.properties.source,
+    userId: documentNode.properties.userId,
+    createdAt: new Date(documentNode.properties.createdAt),
+    validAt: new Date(documentNode.properties.validAt),
+    totalChunks: documentNode.properties.totalChunks,
+    version: documentNode.properties.version || 1,
+    contentHash: documentNode.properties.contentHash || "",
+    previousVersionUuid: documentNode.properties.previousVersionUuid || null,
+    chunkHashes: documentNode.properties.chunkHashes || [],
+  };
+}
+
+/**
+ * Get document version history
+ */
+export async function getDocumentVersions(
+  documentId: string,
+  userId: string,
+  limit: number = 10,
+): Promise<DocumentNode[]> {
+  const query = `
+    MATCH (d:Document {documentId: $documentId, userId: $userId})
+    RETURN d
+    ORDER BY d.version DESC
+    LIMIT $limit
+  `;
+
+  const params = { documentId, userId, limit };
+  const result = await runQuery(query, params);
+
+  return result.map((record) => {
+    const documentNode = record.get("d");
+    return {
+      uuid: documentNode.properties.uuid,
+      title: documentNode.properties.title,
+      originalContent: documentNode.properties.originalContent,
+      metadata: JSON.parse(documentNode.properties.metadata || "{}"),
+      source: documentNode.properties.source,
+      userId: documentNode.properties.userId,
+      createdAt: new Date(documentNode.properties.createdAt),
+      validAt: new Date(documentNode.properties.validAt),
+      totalChunks: documentNode.properties.totalChunks,
+      version: documentNode.properties.version || 1,
+      contentHash: documentNode.properties.contentHash || "",
+      previousVersionUuid: documentNode.properties.previousVersionUuid || null,
+      chunkHashes: documentNode.properties.chunkHashes || [],
     };
   });
 }

@@ -3,11 +3,13 @@ import { type z } from "zod";
 import crypto from "crypto";
 
 import { IngestionStatus } from "@core/database";
-import { EpisodeTypeEnum, type DocumentNode } from "@core/types";
+import { EpisodeTypeEnum } from "@core/types";
 import { logger } from "~/services/logger.service";
-import { DocumentChunker } from "~/services/documentChunker.server";
 import { saveDocument } from "~/services/graphModels/document";
 import { type IngestBodyRequest } from "~/lib/ingest.server";
+import { DocumentVersioningService } from "~/services/documentVersioning.server";
+import { DocumentDifferentialService } from "~/services/documentDiffer.server";
+import { KnowledgeGraphService } from "~/services/knowledgeGraph.server";
 import { prisma } from "../utils/prisma";
 import { ingestTask } from "./ingest";
 
@@ -44,46 +46,117 @@ export const ingestDocumentTask = task({
 
       const documentBody = payload.body as any;
 
-      // Step 1: Create document node
-      const document: DocumentNode = {
-        uuid: crypto.randomUUID(),
-        title: documentBody.documentTitle || "Untitled Document",
-        originalContent: documentBody.episodeBody,
-        metadata: documentBody.metadata || {},
-        source: documentBody.source,
-        userId: payload.userId,
-        createdAt: new Date(),
-        validAt: new Date(documentBody.referenceTime),
-        totalChunks: 0,
-        documentId: documentBody.documentId,
-        sessionId: documentBody.sessionId,
-      };
+      // Step 1: Initialize services and prepare document version
+      const versioningService = new DocumentVersioningService();
+      const differentialService = new DocumentDifferentialService();
+      const knowledgeGraphService = new KnowledgeGraphService();
 
+      const {
+        documentNode: document,
+        versionInfo,
+        chunkedDocument,
+      } = await versioningService.prepareDocumentVersion(
+        documentBody.documentId || crypto.randomUUID(),
+        payload.userId,
+        documentBody.documentTitle || "Untitled Document",
+        documentBody.episodeBody,
+        documentBody.source,
+        documentBody.metadata || {},
+        documentBody.sessionId,
+      );
+
+      logger.log(`Document version analysis:`, {
+        version: versionInfo.newVersion,
+        isNewDocument: versionInfo.isNewDocument,
+        hasContentChanged: versionInfo.hasContentChanged,
+        changePercentage: versionInfo.chunkLevelChanges.changePercentage,
+        changedChunks: versionInfo.chunkLevelChanges.changedChunkIndices.length,
+        totalChunks: versionInfo.chunkLevelChanges.totalChunks,
+      });
+
+      // Step 2: Determine processing strategy
+      const differentialDecision = await differentialService.analyzeDifferentialNeed(
+        documentBody.episodeBody,
+        versionInfo.existingDocument,
+        chunkedDocument,
+      );
+
+      logger.log(`Differential analysis:`, {
+        shouldUseDifferential: differentialDecision.shouldUseDifferential,
+        strategy: differentialDecision.strategy,
+        reason: differentialDecision.reason,
+        documentSizeTokens: differentialDecision.documentSizeTokens,
+      });
+
+      // Step 3: Save the new document version
       await saveDocument(document);
 
-      // Step 2: Chunk the document
-      const documentChunker = new DocumentChunker();
-      const chunkedDocument = await documentChunker.chunkDocument(
-        documentBody.episodeBody,
-        documentBody.documentTitle,
-      );
+      // Step 3.1: Invalidate statements from previous document version if it exists
+      let invalidationResults = null;
+      if (versionInfo.existingDocument && versionInfo.hasContentChanged) {
+        logger.log(`Invalidating statements from previous document version: ${versionInfo.existingDocument.uuid}`);
+        
+        invalidationResults = await knowledgeGraphService.invalidateStatementsFromPreviousDocumentVersion({
+          previousDocumentUuid: versionInfo.existingDocument.uuid,
+          newDocumentContent: documentBody.episodeBody,
+          userId: payload.userId,
+          invalidatedBy: document.uuid,
+          semanticSimilarityThreshold: 0.75, // Configurable threshold
+        });
+
+        logger.log(`Statement invalidation completed:`, {
+          totalAnalyzed: invalidationResults.totalStatementsAnalyzed,
+          invalidated: invalidationResults.invalidatedStatements.length,
+          preserved: invalidationResults.preservedStatements.length,
+        });
+      }
 
       logger.log(
         `Document chunked into ${chunkedDocument.chunks.length} chunks`,
       );
 
-      // Step 3: Queue each chunk as a separate episode
-      for (const chunk of chunkedDocument.chunks) {
+      // Step 4: Process chunks based on differential strategy
+      let chunksToProcess = chunkedDocument.chunks;
+      let processingMode = "full";
+
+      if (differentialDecision.shouldUseDifferential && differentialDecision.strategy === "chunk_level_diff") {
+        // Only process changed chunks
+        const chunkComparisons = differentialService.getChunkComparisons(
+          versionInfo.existingDocument!,
+          chunkedDocument,
+        );
+        
+        const changedIndices = differentialService.getChunksNeedingReprocessing(chunkComparisons);
+        chunksToProcess = chunkedDocument.chunks.filter(chunk => 
+          changedIndices.includes(chunk.chunkIndex)
+        );
+        processingMode = "differential";
+
+        logger.log(`Differential processing: ${chunksToProcess.length}/${chunkedDocument.chunks.length} chunks need reprocessing`);
+      } else if (differentialDecision.strategy === "full_reingest") {
+        // Process all chunks
+        processingMode = "full";
+        logger.log(`Full reingestion: processing all ${chunkedDocument.chunks.length} chunks`);
+      }
+
+      // Step 5: Queue chunks for processing
+      const episodeHandlers = [];
+      for (const chunk of chunksToProcess) {
         const chunkEpisodeData = {
           episodeBody: chunk.content,
           referenceTime: documentBody.referenceTime,
-          metadata: documentBody.metadata,
+          metadata: {
+            ...documentBody.metadata,
+            processingMode,
+            differentialStrategy: differentialDecision.strategy,
+            chunkHash: chunk.contentHash,
+          },
           source: documentBody.source,
           spaceId: documentBody.spaceId,
           sessionId: documentBody.sessionId,
           type: EpisodeTypeEnum.DOCUMENT,
           documentTitle: documentBody.documentTitle,
-          documentId: documentBody.documentId,
+          documentId: document.uuid, // Use the new document UUID
           chunkIndex: chunk.chunkIndex,
         };
 
@@ -97,28 +170,48 @@ export const ingestDocumentTask = task({
           {
             queue: "ingestion-queue",
             concurrencyKey: payload.userId,
-            tags: [payload.userId, payload.queueId],
+            tags: [payload.userId, payload.queueId, processingMode],
           },
         );
 
         if (episodeHandler.id) {
+          episodeHandlers.push(episodeHandler.id);
           logger.log(
-            `Queued chunk ${chunk.chunkIndex + 1}/${chunkedDocument.chunks.length} for processing`,
+            `Queued chunk ${chunk.chunkIndex + 1} for ${processingMode} processing`,
             {
               handlerId: episodeHandler.id,
               chunkSize: chunk.content.length,
+              chunkHash: chunk.contentHash,
             },
           );
         }
       }
+
+      // Calculate cost savings
+      const costSavings = differentialService.calculateCostSavings(
+        chunkedDocument.chunks.length,
+        chunksToProcess.length,
+      );
 
       await prisma.ingestionQueue.update({
         where: { id: payload.queueId },
         data: {
           output: {
             documentUuid: document.uuid,
+            version: versionInfo.newVersion,
             totalChunks: chunkedDocument.chunks.length,
+            chunksProcessed: chunksToProcess.length,
+            chunksSkipped: costSavings.chunksSkipped,
+            processingMode,
+            differentialStrategy: differentialDecision.strategy,
+            estimatedSavings: `${costSavings.estimatedSavingsPercentage.toFixed(1)}%`,
+            statementInvalidation: invalidationResults ? {
+              totalAnalyzed: invalidationResults.totalStatementsAnalyzed,
+              invalidated: invalidationResults.invalidatedStatements.length,
+              preserved: invalidationResults.preservedStatements.length,
+            } : null,
             episodes: [],
+            episodeHandlers,
           },
           status: IngestionStatus.PROCESSING,
         },
@@ -127,10 +220,21 @@ export const ingestDocumentTask = task({
       const processingTimeMs = Date.now() - startTime;
 
       logger.log(
-        `Document chunking processing completed in ${processingTimeMs}ms`,
+        `Document differential processing completed in ${processingTimeMs}ms`,
         {
           documentUuid: document.uuid,
+          version: versionInfo.newVersion,
+          processingMode,
           totalChunks: chunkedDocument.chunks.length,
+          chunksProcessed: chunksToProcess.length,
+          chunksSkipped: costSavings.chunksSkipped,
+          estimatedSavings: `${costSavings.estimatedSavingsPercentage.toFixed(1)}%`,
+          changePercentage: `${differentialDecision.changePercentage.toFixed(1)}%`,
+          statementInvalidation: invalidationResults ? {
+            totalAnalyzed: invalidationResults.totalStatementsAnalyzed,
+            invalidated: invalidationResults.invalidatedStatements.length,
+            preserved: invalidationResults.preservedStatements.length,
+          } : "No previous version",
         },
       );
 

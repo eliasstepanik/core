@@ -113,6 +113,7 @@ export async function getRecentEpisodes(params: {
     userId: params.userId,
     source: params.source || null,
     sessionId: params.sessionId || null,
+    documentId: params.documentId || null,
   };
 
   const result = await runQuery(query, queryParams);
@@ -132,6 +133,7 @@ export async function getRecentEpisodes(params: {
       userId: episode.userId,
       space: episode.space,
       sessionId: episode.sessionId,
+      documentId: episode.documentId,
     };
   });
 }
@@ -176,6 +178,7 @@ export async function searchEpisodesByEmbedding(params: {
         ? JSON.parse(episode.attributesJson)
         : {},
       userId: episode.userId,
+      documentId: episode.documentId,
     };
   });
 }
