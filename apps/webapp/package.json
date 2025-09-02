@@ -126,6 +126,7 @@
     "remix-themes": "^2.0.4",
     "remix-typedjson": "0.3.1",
     "remix-utils": "^7.7.0",
+    "react-markdown": "10.1.0",
     "sdk": "link:@modelcontextprotocol/sdk",
     "sigma": "^3.0.2",
     "simple-oauth2": "^5.1.0",
