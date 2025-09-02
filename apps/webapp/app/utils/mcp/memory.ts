@@ -111,7 +111,7 @@ export async function callMemoryTool(
 // Handler for memory_ingest
 async function handleMemoryIngest(args: any) {
   try {
-    const response = addToQueue(
+    const response = await addToQueue(
       {
         episodeBody: args.message,
         referenceTime: new Date().toISOString(),
@@ -124,7 +124,10 @@ async function handleMemoryIngest(args: any) {
       content: [
         {
           type: "text",
-          text: JSON.stringify(response),
+          text: JSON.stringify({
+            success: true,
+            id: response.id,
+          }),
         },
       ],
     };
