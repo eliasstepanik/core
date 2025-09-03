@@ -1,10 +1,13 @@
 import crypto from "crypto";
 import type { DocumentNode } from "@core/types";
-import { 
-  findExistingDocument, 
-  getDocumentVersions 
+import {
+  findExistingDocument,
+  getDocumentVersions,
 } from "./graphModels/document";
-import { DocumentChunker, type ChunkedDocument } from "./documentChunker.server";
+import {
+  DocumentChunker,
+  type ChunkedDocument,
+} from "./documentChunker.server";
 import { KnowledgeGraphService } from "./knowledgeGraph.server";
 
 export interface DocumentVersion {
@@ -46,37 +49,38 @@ export class DocumentVersioningService {
    * Prepare a new document version with proper versioning information
    */
   async prepareDocumentVersion(
-    documentId: string,
+    sessionId: string,
     userId: string,
     title: string,
     content: string,
     source: string,
     metadata: Record<string, any> = {},
-    sessionId?: string,
   ): Promise<{
     documentNode: DocumentNode;
     versionInfo: VersionedDocumentInfo;
     chunkedDocument: ChunkedDocument;
   }> {
     // Find existing document for version comparison
-    const existingDocument = await findExistingDocument(documentId, userId);
-    
+    const existingDocument = await findExistingDocument(sessionId, userId);
+
     // Chunk the new document content
     const documentChunker = new DocumentChunker();
     const chunkedDocument = await documentChunker.chunkDocument(content, title);
-    
+
     // Determine version information
-    const versionInfo = this.analyzeVersionChanges(existingDocument, chunkedDocument);
-    
+    const versionInfo = this.analyzeVersionChanges(
+      existingDocument,
+      chunkedDocument,
+    );
+
     // Create new document node
     const documentNode = this.createVersionedDocumentNode(
-      documentId,
+      sessionId,
       userId,
       title,
       content,
       source,
       metadata,
-      sessionId,
       versionInfo,
       chunkedDocument,
     );
@@ -111,8 +115,9 @@ export class DocumentVersioningService {
     }
 
     // Check if content has actually changed
-    const hasContentChanged = existingDocument.contentHash !== newChunkedDocument.contentHash;
-    
+    const hasContentChanged =
+      existingDocument.contentHash !== newChunkedDocument.contentHash;
+
     if (!hasContentChanged) {
       return {
         isNewDocument: false,
@@ -152,13 +157,12 @@ export class DocumentVersioningService {
    * Create a new versioned document node
    */
   private createVersionedDocumentNode(
-    documentId: string,
+    sessionId: string,
     userId: string,
     title: string,
     content: string,
     source: string,
     metadata: Record<string, any>,
-    sessionId: string | undefined,
     versionInfo: VersionedDocumentInfo,
     chunkedDocument: ChunkedDocument,
   ): DocumentNode {
@@ -177,12 +181,11 @@ export class DocumentVersioningService {
       createdAt: new Date(),
       validAt: new Date(),
       totalChunks: chunkedDocument.totalChunks,
-      documentId,
-      sessionId,
       version: versionInfo.newVersion,
       contentHash: chunkedDocument.contentHash,
       previousVersionUuid: versionInfo.previousVersionUuid || undefined,
       chunkHashes: chunkedDocument.chunkHashes,
+      sessionId,
     };
   }
 
@@ -195,8 +198,8 @@ export class DocumentVersioningService {
     limit: number = 10,
   ): Promise<DocumentVersion[]> {
     const versions = await getDocumentVersions(documentId, userId, limit);
-    
-    return versions.map(doc => ({
+
+    return versions.map((doc) => ({
       uuid: doc.uuid,
       version: doc.version,
       contentHash: doc.contentHash,
@@ -228,11 +231,14 @@ export class DocumentVersioningService {
       ]);
 
       // Calculate cosine similarity
-      const similarity = this.calculateCosineSimilarity(oldEmbedding, newEmbedding);
-      
+      const similarity = this.calculateCosineSimilarity(
+        oldEmbedding,
+        newEmbedding,
+      );
+
       // If similarity is below threshold, invalidate old statements
       const shouldInvalidate = similarity < threshold;
-      
+
       return {
         shouldInvalidate,
         semanticSimilarity: similarity,
@@ -293,9 +299,8 @@ export class DocumentVersioningService {
   } {
     const totalChunks = versionInfo.chunkLevelChanges.totalChunks;
     const changePercentage = versionInfo.chunkLevelChanges.changePercentage;
-    const savingsPercentage = totalChunks > 0 
-      ? (processingStats.chunksSkipped / totalChunks) * 100 
-      : 0;
+    const savingsPercentage =
+      totalChunks > 0 ? (processingStats.chunksSkipped / totalChunks) * 100 : 0;
 
     return {
       summary: `Document v${versionInfo.newVersion}: ${changePercentage.toFixed(1)}% changed, ${savingsPercentage.toFixed(1)}% processing saved`,

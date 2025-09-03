@@ -82,28 +82,23 @@ export async function getRecentEpisodes(params: {
   userId: string;
   source?: string;
   sessionId?: string;
-  type?: EpisodeType;
-  documentId?: string;
 }): Promise<EpisodicNode[]> {
-  let filters = `WHERE e.validAt <= $referenceTime
-  AND e.userId = $userId`;
+  let filters = `WHERE e.validAt <= $referenceTime`;
 
   if (params.source) {
     filters += `\nAND e.source = $source`;
   }
 
-  if (params.type === EpisodeType.CONVERSATION && params.sessionId) {
+  if (params.sessionId) {
     filters += `\nAND e.sessionId = $sessionId`;
   }
 
-  if (params.type === EpisodeType.DOCUMENT && params.documentId) {
-    filters += `\nAND e.documentId = $documentId`;
-  }
-
   const query = `
-    MATCH (e:Episode)
+    MATCH (e:Episode{userId: $userId})
     ${filters}
-    RETURN e
+    MATCH (e)-[:HAS_PROVENANCE]->(s:Statement)
+    WHERE s.invalidAt IS NULL
+    RETURN DISTINCT e
     ORDER BY e.validAt DESC
     LIMIT ${params.limit}
   `;
@@ -113,7 +108,6 @@ export async function getRecentEpisodes(params: {
     userId: params.userId,
     source: params.source || null,
     sessionId: params.sessionId || null,
-    documentId: params.documentId || null,
   };
 
   const result = await runQuery(query, queryParams);
@@ -316,6 +310,7 @@ export async function getEpisodeStatements(params: {
 }) {
   const query = `
   MATCH (episode:Episode {uuid: $episodeUuid, userId: $userId})-[:HAS_PROVENANCE]->(stmt:Statement)
+  WHERE stmt.invalidAt IS NULL
   RETURN stmt
   `;
 

@@ -19,8 +19,6 @@ export const IngestBodyRequest = z.object({
   type: z
     .enum([EpisodeType.CONVERSATION, EpisodeType.DOCUMENT])
     .default(EpisodeType.CONVERSATION),
-  documentTitle: z.string().optional(),
-  documentId: z.string().optional(),
 });
 
 const ingestionQueue = queue({
@@ -62,16 +60,26 @@ export const ingestTask = task({
       );
 
       // Link episode to document if it's a document chunk
-      if (episodeBody.type === EpisodeType.DOCUMENT && episodeBody.documentId && episodeDetails.episodeUuid) {
+      if (
+        episodeBody.type === EpisodeType.DOCUMENT &&
+        episodeBody.metadata.documentUuid &&
+        episodeDetails.episodeUuid
+      ) {
         try {
           await linkEpisodeToDocument(
             episodeDetails.episodeUuid,
-            episodeBody.documentId,
-            episodeBody.chunkIndex || 0,
+            episodeBody.metadata.documentUuid,
+            episodeBody.metadata.chunkIndex || 0,
           );
-          logger.log(`Linked episode ${episodeDetails.episodeUuid} to document ${episodeBody.documentId} at chunk ${episodeBody.chunkIndex || 0}`);
+          logger.log(
+            `Linked episode ${episodeDetails.episodeUuid} to document ${episodeBody.metadata.documentUuid} at chunk ${episodeBody.metadata.chunkIndex || 0}`,
+          );
         } catch (error) {
-          logger.error(`Failed to link episode to document:`, { error, episodeUuid: episodeDetails.episodeUuid, documentId: episodeBody.documentId });
+          logger.error(`Failed to link episode to document:`, {
+            error,
+            episodeUuid: episodeDetails.episodeUuid,
+            documentUuid: episodeBody.metadata.documentUuid,
+          });
         }
       }
 

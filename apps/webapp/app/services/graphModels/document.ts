@@ -14,7 +14,6 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
       d.createdAt = $createdAt,
       d.validAt = $validAt,
       d.totalChunks = $totalChunks,
-      d.documentId = $documentId,
       d.sessionId = $sessionId,
       d.version = $version,
       d.contentHash = $contentHash,
@@ -27,7 +26,6 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
       d.source = $source,
       d.validAt = $validAt,
       d.totalChunks = $totalChunks,
-      d.documentId = $documentId,
       d.sessionId = $sessionId,
       d.version = $version,
       d.contentHash = $contentHash,
@@ -46,7 +44,6 @@ export async function saveDocument(document: DocumentNode): Promise<string> {
     createdAt: document.createdAt.toISOString(),
     validAt: document.validAt.toISOString(),
     totalChunks: document.totalChunks || 0,
-    documentId: document.documentId || null,
     sessionId: document.sessionId || null,
     version: document.version || 1,
     contentHash: document.contentHash,
@@ -67,8 +64,7 @@ export async function linkEpisodeToDocument(
     MATCH (e:Episode {uuid: $episodeUuid})
     MATCH (d:Document {uuid: $documentUuid})
     MERGE (d)-[r:CONTAINS_CHUNK {chunkIndex: $chunkIndex}]->(e)
-    SET e.documentId = $documentUuid,
-        e.chunkIndex = $chunkIndex
+    SET e.chunkIndex = $chunkIndex
     RETURN r
   `;
 
@@ -175,24 +171,24 @@ export async function getUserDocuments(
  * Generate content hash for document versioning
  */
 export function generateContentHash(content: string): string {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+  return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
 /**
  * Find existing document by documentId and userId for version comparison
  */
 export async function findExistingDocument(
-  documentId: string,
+  sessionId: string,
   userId: string,
 ): Promise<DocumentNode | null> {
   const query = `
-    MATCH (d:Document {documentId: $documentId, userId: $userId})
+    MATCH (d:Document {sessionId: $sessionId, userId: $userId})
     RETURN d
     ORDER BY d.version DESC
     LIMIT 1
   `;
 
-  const params = { documentId, userId };
+  const params = { sessionId, userId };
   const result = await runQuery(query, params);
 
   if (result.length === 0) return null;
@@ -219,18 +215,18 @@ export async function findExistingDocument(
  * Get document version history
  */
 export async function getDocumentVersions(
-  documentId: string,
+  sessionId: string,
   userId: string,
   limit: number = 10,
 ): Promise<DocumentNode[]> {
   const query = `
-    MATCH (d:Document {documentId: $documentId, userId: $userId})
+    MATCH (d:Document {sessionId: $sessionId, userId: $userId})
     RETURN d
     ORDER BY d.version DESC
     LIMIT $limit
   `;
 
-  const params = { documentId, userId, limit };
+  const params = { sessionId, userId, limit };
   const result = await runQuery(query, params);
 
   return result.map((record) => {

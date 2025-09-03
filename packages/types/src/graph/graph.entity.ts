@@ -12,7 +12,6 @@ export interface DocumentNode {
   createdAt: Date;
   validAt: Date;
   totalChunks: number;
-  documentId?: string;
   sessionId?: string;
   // Version tracking for differential ingestion
   version: number;
@@ -39,7 +38,6 @@ export interface EpisodicNode {
   space?: string;
   sessionId?: string;
   recallCount?: number;
-  documentId?: string;
   chunkIndex?: number; // Index of this chunk within the document
 }
 
@@ -113,10 +111,6 @@ export type AddEpisodeParams = {
   spaceId?: string;
   sessionId?: string;
   type?: EpisodeType;
-  documentTitle?: string;
-  documentId?: string;
-  chunkIndex?: number;
-  chunkContext?: string;
 };
 
 export type AddEpisodeResult = {

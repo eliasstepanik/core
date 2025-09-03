@@ -249,8 +249,6 @@ export class KnowledgeGraphService {
         userId: params.userId,
         source: params.source,
         sessionId: params.sessionId,
-        type: params.type,
-        documentId: params.documentId,
       });
 
       // Format session context from previous episodes

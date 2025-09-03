@@ -37,16 +37,11 @@ export const addToQueue = async (
     },
   });
 
-  let ingestionType = EpisodeType.CONVERSATION;
-  if (body.documentId) {
-    ingestionType = EpisodeType.DOCUMENT;
-  }
-
   let handler;
-  if (ingestionType === EpisodeType.DOCUMENT) {
+  if (body.type === EpisodeType.DOCUMENT) {
     handler = await ingestDocumentTask.trigger(
       {
-        body: { ...body, type: ingestionType },
+        body,
         userId,
         workspaceId: user.Workspace.id,
         queueId: queuePersist.id,
@@ -57,10 +52,10 @@ export const addToQueue = async (
         tags: [user.id, queuePersist.id],
       },
     );
-  } else if (ingestionType === EpisodeType.CONVERSATION) {
+  } else if (body.type === EpisodeType.CONVERSATION) {
     handler = await ingestTask.trigger(
       {
-        body: { ...body, type: ingestionType },
+        body,
         userId,
         workspaceId: user.Workspace.id,
         queueId: queuePersist.id,
