@@ -5,9 +5,11 @@ Integrations connect external services to CORE's knowledge graph, automatically 
 ## Available Integrations
 
 ### 🐙 [GitHub](./github/README.md)
+
 Tracks your GitHub activities and notifications, including PRs, issues, comments, and repository events.
 
 **Features:**
+
 - Pull request creation, comments, and reviews
 - Issue tracking and assignments
 - Notification processing (mentions, reviews, assignments)
@@ -15,17 +17,21 @@ Tracks your GitHub activities and notifications, including PRs, issues, comments
 - Team mentions and state changes
 
 ### 📐 [Linear](./linear/README.md)
+
 Project management and issue tracking integration.
 
 **Features:**
+
 - Issue creation and updates
 - Project milestone tracking
 - Team assignments and workflows
 
 ### 💬 [Slack](./slack/README.md)
+
 Workspace communication and activity tracking.
 
 **Features:**
+
 - Channel message monitoring
 - Direct message tracking
 - Thread participation
@@ -41,6 +47,7 @@ Workspace communication and activity tracking.
 ## Common Features
 
 ### 🔄 Data Collection Methods
+
 - **Scheduled Sync**: Periodic API polling (every 5 minutes) for services like GitHub and Linear
 - **Real-time Webhooks**: Instant event delivery for services that support personal webhooks (like Slack)
 - **Incremental Updates**: Only fetch new activities since last sync
@@ -49,12 +56,14 @@ Workspace communication and activity tracking.
 - **Error Handling**: Graceful degradation on service outages
 
 ### 📊 Activity Tracking
+
 - **User Actions**: What you created, commented, or modified
 - **Mentions**: When others reference you in discussions
 - **Assignments**: Tasks or issues assigned to you
 - **State Changes**: Status updates on projects you follow
 
 ### 🧠 Knowledge Graph Integration
+
 - **Entities**: People, projects, repositories, issues, organizations
 - **Relationships**: Created, commented, assigned, mentioned, collaborated
 - **Temporal Context**: When events occurred and their sequence
@@ -74,6 +83,7 @@ All integrations generate events in a consistent format for knowledge graph inge
 ```
 
 ### Example Events
+
 ```
 john_doe created PR #123 in facebook/react: Fix memory leak in hooks
 alice_smith mentioned manoj_k in linear/project issue #456: Can you review?
@@ -94,12 +104,14 @@ Each integration requires:
 ### Adding New Integrations
 
 1. **Create Integration Directory**
+
    ```bash
    mkdir integrations/{service-name}
    cd integrations/{service-name}
    ```
 
 2. **Required Files**
+
    ```
    src/
    ├── index.ts          # Main entry point
@@ -110,6 +122,7 @@ Each integration requires:
    ```
 
 3. **Core Implementation**
+
    - Extend `IntegrationCLI` class
    - Implement OAuth2 authentication
    - Define sync schedule and event processing
