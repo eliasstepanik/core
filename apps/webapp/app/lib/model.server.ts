@@ -11,6 +11,8 @@ import { logger } from "~/services/logger.service";
 import { createOllama, type OllamaProvider } from "ollama-ai-provider";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 
 export async function makeModelCall(
   stream: boolean,
@@ -18,8 +20,8 @@ export async function makeModelCall(
   onFinish: (text: string, model: string) => void,
   options?: any,
 ) {
-  let modelInstance;
-  const model = process.env.MODEL as any;
+  let modelInstance: LanguageModelV1 | undefined;
+  let model = process.env.MODEL as any;
   const ollamaUrl = process.env.OLLAMA_URL;
   let ollama: OllamaProvider | undefined;
 
@@ -29,6 +31,15 @@ export async function makeModelCall(
     });
   }
 
+  const bedrock = createAmazonBedrock({
+    region: process.env.AWS_REGION || 'us-east-1', 
+    credentialProvider: fromNodeProviderChain(),
+  });
+
+  const generateTextOptions: any = {}
+
+
+  model = 'us.amazon.nova-premier-v1:0'
   switch (model) {
     case "gpt-4.1-2025-04-14":
     case "gpt-4.1-mini-2025-04-14":
@@ -36,6 +47,7 @@ export async function makeModelCall(
     case "gpt-5-2025-08-07":
     case "gpt-4.1-nano-2025-04-14":
       modelInstance = openai(model, { ...options });
+      generateTextOptions.temperature = 1
       break;
 
     case "claude-3-7-sonnet-20250219":
@@ -51,6 +63,15 @@ export async function makeModelCall(
       modelInstance = google(model, { ...options });
       break;
 
+    case "us.meta.llama3-3-70b-instruct-v1:0":
+    case "us.deepseek.r1-v1:0":
+    case "qwen.qwen3-32b-v1:0":
+    case "openai.gpt-oss-120b-1:0":
+    case "us.mistral.pixtral-large-2502-v1:0":
+    case "us.amazon.nova-premier-v1:0":
+      modelInstance = bedrock(`${model}`);
+      break;
+
     default:
       if (ollama) {
         modelInstance = ollama(model);
@@ -59,24 +80,49 @@ export async function makeModelCall(
       break;
   }
 
+  if (!modelInstance) {
+    throw new Error(`Unsupported model type: ${model}`);
+  }
+
   if (stream) {
     return streamText({
-      model: modelInstance as LanguageModelV1,
+      model: modelInstance,
       messages,
+      ...generateTextOptions,
       onFinish: async ({ text }) => {
         onFinish(text, model);
       },
     });
   }
 
-  const { text } = await generateText({
-    model: modelInstance as LanguageModelV1,
+  const { text, response } = await generateText({
+    model: modelInstance,
     messages,
+    ...generateTextOptions,
   });
 
   onFinish(text, model);
 
   return text;
+}
+
+/**
+ * Determines if the current model is proprietary (OpenAI, Anthropic, Google, Grok)
+ * or open source (accessed via Bedrock, Ollama, etc.)
+ */
+export function isProprietaryModel(): boolean {
+  const model = process.env.MODEL;
+  if (!model) return false;
+
+  // Proprietary model patterns
+  const proprietaryPatterns = [
+    /^gpt-/,           // OpenAI models
+    /^claude-/,        // Anthropic models
+    /^gemini-/,        // Google models
+    /^grok-/,          // xAI models
+  ];
+
+  return proprietaryPatterns.some(pattern => pattern.test(model));
 }
 
 export async function getEmbedding(text: string) {

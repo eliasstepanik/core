@@ -19,6 +19,7 @@ import {
 } from "./prompts/nodes";
 import {
   extractStatements,
+  extractStatementsOSS,
   resolveStatementPrompt,
 } from "./prompts/statements";
 import {
@@ -39,7 +40,7 @@ import {
   saveTriple,
   searchStatementsByEmbedding,
 } from "./graphModels/statement";
-import { getEmbedding, makeModelCall } from "~/lib/model.server";
+import { getEmbedding, makeModelCall, isProprietaryModel } from "~/lib/model.server";
 import { runQuery } from "~/lib/neo4j.server";
 import { Apps, getNodeTypesString } from "~/utils/presets/nodes";
 import { normalizePrompt, normalizeDocumentPrompt } from "./prompts";
@@ -447,19 +448,21 @@ export class KnowledgeGraphService {
 
     if (outputMatch && outputMatch[1]) {
       responseText = outputMatch[1].trim();
-      const extractedEntities = JSON.parse(responseText || "{}").entities || [];
+      const parsedResponse = JSON.parse(responseText || "[]");
+      // Handle both old format {entities: [...]} and new format [...]
+      const extractedEntities = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.entities || []);
 
       // Batch generate embeddings for entity names
-      const entityNames = extractedEntities.map((entity: any) => entity.name);
+      const entityNames = Array.isArray(extractedEntities[0]) ? extractedEntities : extractedEntities.map((entity: any) => entity.name || entity);
       const nameEmbeddings = await Promise.all(
         entityNames.map((name: string) => this.getEmbedding(name)),
       );
 
       entities = extractedEntities.map((entity: any, index: number) => ({
         uuid: crypto.randomUUID(),
-        name: entity.name,
+        name: typeof entity === 'string' ? entity : entity.name,
         type: undefined, // Type will be inferred from statements
-        attributes: entity.attributes || {},
+        attributes: typeof entity === 'string' ? {} : (entity.attributes || {}),
         nameEmbedding: nameEmbeddings[index],
         typeEmbedding: undefined, // No type embedding needed
         createdAt: new Date(),
@@ -503,7 +506,10 @@ export class KnowledgeGraphService {
     };
 
     // Get the statement extraction prompt from the prompt library
-    const messages = extractStatements(context);
+    // Choose between proprietary and OSS prompts based on model type
+    const messages = isProprietaryModel()
+      ? extractStatements(context)
+      : extractStatementsOSS(context);
 
     let responseText = "";
     await makeModelCall(false, messages as CoreMessage[], (text) => {
@@ -518,8 +524,11 @@ export class KnowledgeGraphService {
     }
 
     // Parse the statements from the LLM response
-    const extractedTriples: ExtractedTripleData[] =
-      JSON.parse(responseText || "{}").edges || [];
+    const parsedResponse = JSON.parse(responseText || "[]");
+    // Handle both old format {"edges": [...]} and new format [...]
+    const extractedTriples: ExtractedTripleData[] = Array.isArray(parsedResponse)
+      ? parsedResponse
+      : (parsedResponse.edges || []);
 
     console.log(`extracted triples length: ${extractedTriples.length}`);
 
