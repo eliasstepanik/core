@@ -229,9 +229,19 @@ export class KnowledgeGraphService {
     episodeUuid: string | null;
     statementsCreated: number;
     processingTimeMs: number;
+    tokenUsage?: {
+      high: { input: number; output: number; total: number };
+      low: { input: number; output: number; total: number };
+    };
   }> {
     const startTime = Date.now();
     const now = new Date();
+
+    // Track token usage by complexity
+    const tokenMetrics = {
+      high: { input: 0, output: 0, total: 0 },
+      low: { input: 0, output: 0, total: 0 },
+    };
 
     try {
       // Step 1: Context Retrieval - Get previous episodes for context
@@ -259,6 +269,7 @@ export class KnowledgeGraphService {
         params.source,
         params.userId,
         prisma,
+        tokenMetrics,
         new Date(params.referenceTime),
         sessionContext,
         params.type,
@@ -296,6 +307,7 @@ export class KnowledgeGraphService {
       const extractedNodes = await this.extractEntities(
         episode,
         previousEpisodes,
+        tokenMetrics,
       );
 
       console.log(extractedNodes.map((node) => node.name));
@@ -317,6 +329,7 @@ export class KnowledgeGraphService {
         episode,
         categorizedEntities,
         previousEpisodes,
+        tokenMetrics,
       );
 
       const extractedStatementsTime = Date.now();
@@ -329,6 +342,7 @@ export class KnowledgeGraphService {
         extractedStatements,
         episode,
         previousEpisodes,
+        tokenMetrics,
       );
 
       const resolvedTriplesTime = Date.now();
@@ -342,6 +356,7 @@ export class KnowledgeGraphService {
           resolvedTriples,
           episode,
           previousEpisodes,
+          tokenMetrics,
         );
 
       const resolvedStatementsTime = Date.now();
@@ -408,6 +423,7 @@ export class KnowledgeGraphService {
         // nodesCreated: hydratedNodes.length,
         statementsCreated: resolvedStatements.length,
         processingTimeMs,
+        tokenUsage: tokenMetrics,
       };
     } catch (error) {
       console.error("Error in addEpisode:", error);
@@ -421,6 +437,7 @@ export class KnowledgeGraphService {
   private async extractEntities(
     episode: EpisodicNode,
     previousEpisodes: EpisodicNode[],
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
   ): Promise<EntityNode[]> {
     // Use the prompt library to get the appropriate prompts
     const context = {
@@ -437,9 +454,15 @@ export class KnowledgeGraphService {
 
     let responseText = "";
 
-    await makeModelCall(false, messages as CoreMessage[], (text) => {
+    // Entity extraction requires HIGH complexity (creative reasoning, nuanced NER)
+    await makeModelCall(false, messages as CoreMessage[], (text, _model, usage) => {
       responseText = text;
-    });
+      if (usage) {
+        tokenMetrics.high.input += usage.promptTokens;
+        tokenMetrics.high.output += usage.completionTokens;
+        tokenMetrics.high.total += usage.totalTokens;
+      }
+    }, undefined, 'high');
 
     // Convert to EntityNode objects
     let entities: EntityNode[] = [];
@@ -484,6 +507,7 @@ export class KnowledgeGraphService {
       expanded: EntityNode[];
     },
     previousEpisodes: EpisodicNode[],
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
   ): Promise<Triple[]> {
     // Use the prompt library to get the appropriate prompts
     const context = {
@@ -505,16 +529,21 @@ export class KnowledgeGraphService {
       referenceTime: episode.validAt.toISOString(),
     };
 
-    // Get the statement extraction prompt from the prompt library
+    // Statement extraction requires HIGH complexity (causal reasoning, emotional context)
     // Choose between proprietary and OSS prompts based on model type
-    const messages = isProprietaryModel()
+    const messages = isProprietaryModel(undefined, 'high')
       ? extractStatements(context)
       : extractStatementsOSS(context);
 
     let responseText = "";
-    await makeModelCall(false, messages as CoreMessage[], (text) => {
+    await makeModelCall(false, messages as CoreMessage[], (text, _model, usage) => {
       responseText = text;
-    });
+      if (usage) {
+        tokenMetrics.high.input += usage.promptTokens;
+        tokenMetrics.high.output += usage.completionTokens;
+        tokenMetrics.high.total += usage.totalTokens;
+      }
+    }, undefined, 'high');
 
     const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
     if (outputMatch && outputMatch[1]) {
@@ -648,6 +677,7 @@ export class KnowledgeGraphService {
     triples: Triple[],
     episode: EpisodicNode,
     previousEpisodes: EpisodicNode[],
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
   ): Promise<Triple[]> {
     // Step 1: Extract unique entities from triples
     const uniqueEntitiesMap = new Map<string, EntityNode>();
@@ -773,9 +803,15 @@ export class KnowledgeGraphService {
     const messages = dedupeNodes(dedupeContext);
     let responseText = "";
 
-    await makeModelCall(false, messages as CoreMessage[], (text) => {
+    // Entity deduplication is LOW complexity (pattern matching, similarity comparison)
+    await makeModelCall(false, messages as CoreMessage[], (text, _model, usage) => {
       responseText = text;
-    });
+      if (usage) {
+        tokenMetrics.low.input += usage.promptTokens;
+        tokenMetrics.low.output += usage.completionTokens;
+        tokenMetrics.low.total += usage.totalTokens;
+      }
+    }, undefined, 'low');
 
     // Step 5: Process LLM response
     const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
@@ -856,6 +892,7 @@ export class KnowledgeGraphService {
     triples: Triple[],
     episode: EpisodicNode,
     previousEpisodes: EpisodicNode[],
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
   ): Promise<{
     resolvedStatements: Triple[];
     invalidatedStatements: string[];
@@ -1008,10 +1045,15 @@ export class KnowledgeGraphService {
 
       let responseText = "";
 
-      // Call the LLM to analyze all statements at once
-      await makeModelCall(false, messages, (text) => {
+      // Statement resolution is LOW complexity (rule-based duplicate/contradiction detection)
+      await makeModelCall(false, messages, (text, _model, usage) => {
         responseText = text;
-      });
+        if (usage) {
+          tokenMetrics.low.input += usage.promptTokens;
+          tokenMetrics.low.output += usage.completionTokens;
+          tokenMetrics.low.total += usage.totalTokens;
+        }
+      }, undefined, 'low');
 
       try {
         // Extract the JSON response from the output tags
@@ -1092,6 +1134,7 @@ export class KnowledgeGraphService {
   private async addAttributesToEntities(
     triples: Triple[],
     episode: EpisodicNode,
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
   ): Promise<Triple[]> {
     // Collect all unique entities from the triples
     const entityMap = new Map<string, EntityNode>();
@@ -1131,10 +1174,15 @@ export class KnowledgeGraphService {
 
     let responseText = "";
 
-    // Call the LLM to extract attributes
-    await makeModelCall(false, messages as CoreMessage[], (text) => {
+    // Attribute extraction is LOW complexity (simple key-value extraction)
+    await makeModelCall(false, messages as CoreMessage[], (text, _model, usage) => {
       responseText = text;
-    });
+      if (usage) {
+        tokenMetrics.low.input += usage.promptTokens;
+        tokenMetrics.low.output += usage.completionTokens;
+        tokenMetrics.low.total += usage.totalTokens;
+      }
+    }, undefined, 'low');
 
     try {
       const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
@@ -1172,6 +1220,7 @@ export class KnowledgeGraphService {
     source: string,
     userId: string,
     prisma: PrismaClient,
+    tokenMetrics: { high: { input: number; output: number; total: number }; low: { input: number; output: number; total: number } },
     episodeTimestamp?: Date,
     sessionContext?: string,
     contentType?: EpisodeType,
@@ -1206,10 +1255,16 @@ export class KnowledgeGraphService {
       contentType === EpisodeTypeEnum.DOCUMENT
         ? normalizeDocumentPrompt(context)
         : normalizePrompt(context);
+    // Normalization is LOW complexity (text cleaning and standardization)
     let responseText = "";
-    await makeModelCall(false, messages, (text) => {
+    await makeModelCall(false, messages, (text, _model, usage) => {
       responseText = text;
-    });
+      if (usage) {
+        tokenMetrics.low.input += usage.promptTokens;
+        tokenMetrics.low.output += usage.completionTokens;
+        tokenMetrics.low.total += usage.totalTokens;
+      }
+    }, undefined, 'low');
     let normalizedEpisodeBody = "";
     const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
     if (outputMatch && outputMatch[1]) {
