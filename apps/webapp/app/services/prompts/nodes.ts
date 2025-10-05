@@ -78,7 +78,24 @@ You are given a conversation context and a CURRENT EPISODE. Your task is to extr
    - Do NOT extract absolute dates, timestamps, or specific time points—these will be handled separately.
    - Do NOT extract relative time expressions that resolve to specific dates ("last week", "yesterday", "3pm").
 
-8. **Entity Name Extraction**:
+8. **Entity Usefulness Test - SELECTIVITY FILTER**:
+   Before extracting an entity, ask: "Would this be useful in a search query?"
+
+   ✅ EXTRACT (Searchable, persistent concepts):
+   - Named entities: "Sarah", "OpenAI", "Boston", "Albert Heijn"
+   - Domain concepts: "Preferences", "Home Address", "Annual Review", "Coding Practice"
+   - Measurements: "10/10 rating", "$2.5 million", "75% completion"
+   - Abstract concepts: "Lean Startup", "DevOps Culture", "Quality Standards"
+
+   ❌ SKIP (Transient descriptors, low search value):
+   - Descriptive phrases: "new files", "existing code", "good practice", "necessary changes"
+   - Generic qualifiers: "better approach", "current version", "recent updates"
+   - Verb phrases: "creating documentation", "editing files", "avoiding mistakes"
+   - Adjective+noun combinations without specificity: "important meeting", "quick fix"
+
+   **GUIDELINE**: Extract stable concepts that persist across contexts. Skip ephemeral descriptors tied to single actions.
+
+9. **Entity Name Extraction**:
    - Extract ONLY the core entity name, WITHOUT any descriptors or qualifiers
    - When text mentions "Tesla car", extract TWO entities: "Tesla" AND "Car" 
    - When text mentions "memory space system", extract "Memory", "Space", AND "System" as separate entities
@@ -87,7 +104,7 @@ You are given a conversation context and a CURRENT EPISODE. Your task is to extr
    - **FULL NAMES**: Use complete names when available (e.g., "John Smith" not "John")
    - **CONCEPT NORMALIZATION**: Convert to singular form where appropriate ("spaces" → "Space")
 
-9. **Temporal and Relationship Context Extraction**:
+10. **Temporal and Relationship Context Extraction**:
    - EXTRACT duration expressions that describe relationship spans ("4 years", "2 months", "5 years")
    - EXTRACT temporal context that anchors relationships ("since moving", "after graduation", "during college")
    - EXTRACT relationship qualifiers ("close friends", "support system", "work team", "family members")

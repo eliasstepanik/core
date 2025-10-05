@@ -11,19 +11,31 @@ CRITICAL: CAPTURE ALL DISTINCT PIECES OF INFORMATION. Every separate fact, prefe
 
 OUTPUT GUIDELINES:
 - Simple content (1-2 facts): Use 1-2 concise sentences
-- Complex content (multiple facts/categories): Use structured paragraphs organized by topic
+- Complex content (multiple facts/categories): Use multiple focused paragraphs, each covering ONE topic area
 - Technical content: Preserve specifications, commands, paths, version numbers, configurations
 - Let content complexity determine output length - completeness over arbitrary brevity
+- IMPORTANT: Break complex content into digestible paragraphs with natural sentence boundaries for easier fact extraction
 
 <enrichment_strategy>
 1. PRIMARY FACTS - Always preserve ALL core information, specifications, and details
 2. SPEAKER ATTRIBUTION - When content contains self-introductions ("I'm X", "My name is Y"), explicitly preserve speaker identity in third person (e.g., "the user introduced themselves as X" or "X introduced himself/herself")
 3. TEMPORAL RESOLUTION - Convert relative dates to absolute dates using timestamp
 4. CONTEXT ENRICHMENT - Add context when it clarifies unclear references
-5. VISUAL CONTENT - Capture exact text on signs, objects shown, specific details from images
-6. EMOTIONAL PRESERVATION - Maintain tone and feeling of emotional exchanges
-7. TECHNICAL CONTENT - Preserve commands, paths, version numbers, configurations, procedures
-8. STRUCTURED CONTENT - Maintain hierarchy, lists, categories, relationships
+5. SEMANTIC ENRICHMENT - Include semantic synonyms and related concepts to improve search recall (e.g., "address" → "residential location", "phone" → "contact number", "job" → "position/role/employment")
+6. ATTRIBUTE ABSTRACTION - For personal attributes (preferences, habits, contact info, practices):
+   - Replace pronouns with actual person names from context
+   - Frame as direct "[Person] [verb] [attribute]" statements (NOT "[Person]'s [attribute] is/are X")
+   - Break multiple preferences into separate sentences for atomic fact extraction
+   - Examples:
+     * "I prefer dark mode" → "John prefers dark mode"
+     * "Call me at 555-1234" → "Sarah's phone number is 555-1234"
+     * "I avoid creating files" → "John avoids creating new files unless necessary"
+     * "My manager is Alex" → "Mike is managed by Alex"
+     * "I prefer X, Y, and avoid Z" → "John prefers X. John prefers Y. John avoids Z."
+7. VISUAL CONTENT - Capture exact text on signs, objects shown, specific details from images
+8. EMOTIONAL PRESERVATION - Maintain tone and feeling of emotional exchanges
+9. TECHNICAL CONTENT - Preserve commands, paths, version numbers, configurations, procedures
+10. STRUCTURED CONTENT - Maintain hierarchy, lists, categories, relationships
 
 CONTENT-ADAPTIVE APPROACH:
 - Conversations: Focus on dialogue context, relationships, emotional tone
@@ -165,6 +177,28 @@ SIMPLE CONVERSATION - EMOTIONAL SUPPORT:
 - Original: "You'll be an awesome mom! Good luck!"
 - Enriched: "On May 25, 2023, Melanie encouraged Caroline about her adoption plans, affirming she would be an awesome mother."
 - Why: Simple temporal context, preserve emotional tone, no historical dumping
+
+SEMANTIC ENRICHMENT FOR BETTER SEARCH:
+- Original: "My address is 123 Main St. Boston, MA 02101"
+- Enriched: "On October 3, 2025, the user's residential address (home location) is 123 Main St. Boston, MA 02101."
+- Why: "residential address" and "home location" as synonyms improve semantic search for queries like "where does user live" or "residential location"
+
+- Original: "Call me at 555-1234"
+- Enriched: "On October 3, 2025, the user's phone number (contact number) is 555-1234."
+- Why: "phone number" and "contact number" as synonyms help queries like "how to contact" or "telephone"
+
+ATTRIBUTE ABSTRACTION FOR BETTER GRAPH RELATIONSHIPS:
+- Original: "I avoid creating new files unless necessary"
+- Enriched: "On October 3, 2025, John has a coding practice: avoid creating new files unless necessary."
+- Why: Creates direct relationship from person to practice for better graph traversal
+
+- Original: "I prefer editing existing code over writing new code"
+- Enriched: "On October 3, 2025, John prefers editing existing code over writing new code."
+- Why: Direct preference relationship enables queries like "what are John's preferences"
+
+- Original: "My manager is Sarah"
+- Enriched: "On October 3, 2025, Alex is managed by Sarah."
+- Why: Direct reporting relationship instead of intermediate "manager" entity
 
 COMPLEX TECHNICAL CONTENT - COMPREHENSIVE EXTRACTION:
 - Original: "Working on e-commerce site with Next.js 14. Run pnpm dev to start at port 3000. Using Prisma with PostgreSQL, Stripe for payments, Redis for caching. API routes in /api/*, database migrations in /prisma/migrations."

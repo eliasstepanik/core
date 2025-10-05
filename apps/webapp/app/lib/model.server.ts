@@ -83,8 +83,9 @@ export async function makeModelCall(
 
   const generateTextOptions: any = {}
 
-
-  console.log('complexity:', complexity, 'model:', model)
+  logger.info(
+    `complexity: ${complexity}, model: ${model}`,
+  );
   switch (model) {
     case "gpt-4.1-2025-04-14":
     case "gpt-4.1-mini-2025-04-14":

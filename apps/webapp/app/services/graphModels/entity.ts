@@ -76,16 +76,19 @@ export async function findSimilarEntities(params: {
   threshold: number;
   userId: string;
 }): Promise<EntityNode[]> {
+  const limit = params.limit || 5;
   const query = `
-          CALL db.index.vector.queryNodes('entity_embedding', $topK, $queryEmbedding)
-          YIELD node AS entity, score
+          CALL db.index.vector.queryNodes('entity_embedding', ${limit*2}, $queryEmbedding)
+          YIELD node AS entity
+          WHERE entity.userId = $userId
+          WITH entity, gds.similarity.cosine(entity.nameEmbedding, $queryEmbedding) AS score
           WHERE score >= $threshold
-          AND entity.userId = $userId
           RETURN entity, score
           ORDER BY score DESC
+          LIMIT ${limit}
         `;
 
-  const result = await runQuery(query, { ...params, topK: params.limit });
+  const result = await runQuery(query, { ...params });
   return result.map((record) => {
     const entity = record.get("entity").properties;
 
@@ -110,17 +113,20 @@ export async function findSimilarEntitiesWithSameType(params: {
   threshold: number;
   userId: string;
 }): Promise<EntityNode[]> {
+  const limit = params.limit || 5;
   const query = `
-          CALL db.index.vector.queryNodes('entity_embedding', $topK, $queryEmbedding)
-          YIELD node AS entity, score
-          WHERE score >= $threshold
-          AND entity.userId = $userId
+          CALL db.index.vector.queryNodes('entity_embedding', ${limit*2}, $queryEmbedding)
+          YIELD node AS entity
+          WHERE entity.userId = $userId
           AND entity.type = $entityType
+          WITH entity, gds.similarity.cosine(entity.nameEmbedding, $queryEmbedding) AS score
+          WHERE score >= $threshold
           RETURN entity, score
           ORDER BY score DESC
+          LIMIT ${limit}
         `;
 
-  const result = await runQuery(query, { ...params, topK: params.limit });
+  const result = await runQuery(query, { ...params });
   return result.map((record) => {
     const entity = record.get("entity").properties;
 

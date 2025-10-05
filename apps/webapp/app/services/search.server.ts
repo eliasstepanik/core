@@ -1,9 +1,7 @@
 import type { EpisodicNode, StatementNode } from "@core/types";
 import { logger } from "./logger.service";
 import {
-  applyCohereReranking,
-  applyCrossEncoderReranking,
-  applyMultiFactorMMRReranking,
+  applyLLMReranking,
 } from "./search/rerank";
 import {
   getEpisodesByStatements,
@@ -14,7 +12,6 @@ import {
 import { getEmbedding } from "~/lib/model.server";
 import { prisma } from "~/db.server";
 import { runQuery } from "~/lib/neo4j.server";
-import { env } from "~/env.server";
 
 /**
  * SearchService provides methods to search the reified + temporal knowledge graph
@@ -41,7 +38,7 @@ export class SearchService {
     // Default options
 
     const opts: Required<SearchOptions> = {
-      limit: options.limit || 10,
+      limit: options.limit || 100,
       maxBfsDepth: options.maxBfsDepth || 4,
       validAt: options.validAt || new Date(),
       startTime: options.startTime || null,
@@ -61,7 +58,7 @@ export class SearchService {
     const [bm25Results, vectorResults, bfsResults] = await Promise.all([
       performBM25Search(query, userId, opts),
       performVectorSearch(queryVector, userId, opts),
-      performBfsSearch(queryVector, userId, opts),
+      performBfsSearch(query, queryVector, userId, opts),
     ]);
 
     logger.info(
@@ -77,7 +74,6 @@ export class SearchService {
 
     // // 3. Apply adaptive filtering based on score threshold and minimum count
     const filteredResults = this.applyAdaptiveFiltering(rankedStatements, opts);
-    // const filteredResults = rankedStatements;
 
     // 3. Return top results
     const episodes = await getEpisodesByStatements(filteredResults.map((item) => item.statement));
@@ -234,31 +230,8 @@ export class SearchService {
     },
     options: Required<SearchOptions>,
   ): Promise<StatementNode[]> {
-    // Count non-empty result sources
-    const nonEmptySources = [
-      results.bm25.length > 0,
-      results.vector.length > 0,
-      results.bfs.length > 0,
-    ].filter(Boolean).length;
 
-    if (env.COHERE_API_KEY) {
-      logger.info("Using Cohere reranking");
-      return applyCohereReranking(query, results, options);
-    }
-
-    // If results are coming from only one source, use cross-encoder reranking
-    if (nonEmptySources <= 1) {
-      logger.info(
-        "Only one source has results, falling back to cross-encoder reranking",
-      );
-      return applyCrossEncoderReranking(query, results);
-    }
-
-    // Otherwise use combined MultiFactorReranking + MMR for multiple sources
-    return applyMultiFactorMMRReranking(results, {
-      lambda: 0.7, // Balance relevance (0.7) vs diversity (0.3)
-      maxResults: options.limit > 0 ? options.limit * 2 : 100, // Get more results for filtering
-    });
+    return applyLLMReranking(query, results,);
   }
 
   private async logRecallAsync(

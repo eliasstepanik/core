@@ -72,6 +72,53 @@ For each entity, systematically check these common patterns:
 - Complex multi-hop inferences
 - Implicit relationships requiring interpretation
 
+## DIRECT RELATIONSHIP PRIORITY
+
+ALWAYS create direct subject→predicate→object relationships. Avoid intermediate container entities that add unnecessary graph hops.
+
+✅ PREFERRED (1-hop traversal, optimal recall):
+- "Sarah's manager is Mike" → Sarah → managed_by → Mike
+- "Alex prefers dark mode" → Alex → prefers → "dark mode"
+- "Office in Boston" → Office → located_in → Boston
+- "User avoids creating files" → User → avoids → "creating new files"
+- "Home address is 123 Main St" → User → has_home_address → "123 Main St, Boston"
+
+❌ AVOID (2-hop traversal, poor recall):
+- Sarah → has → Manager [then] Manager → is → Mike (adds extra hop)
+- Alex → has → Preferences [then] Preferences → includes → "dark mode" (adds extra hop)
+- Office → has → Location [then] Location → is_in → Boston (adds extra hop)
+
+## ATOMIC BUT CONTEXTUAL FACTS
+
+When extracting facts about preferences, practices, habits, or context-specific information, ALWAYS include the scope/context directly in the fact statement itself. This ensures atomic facts retain their contextual boundaries.
+
+✅ GOOD (Atomic + Contextual):
+- "Sarah prefers morning workouts at the gym"
+- "Family orders pizza for Friday movie nights"
+- "Alex drinks green tea when working late"
+- "Doctor recommends stretching exercises for back pain"
+- "Team celebrates birthdays with lunch outings"
+- "Maria reads fiction books during vacation"
+
+❌ BAD (Atomic but Decontextualized - loses scope):
+- "Sarah prefers morning workouts" (where? at home? at gym? outdoors?)
+- "Family orders pizza" (when? weekends? special occasions? always?)
+- "Alex drinks green tea" (when? all day? specific times? why?)
+- "Doctor recommends stretching" (for what? general health? specific condition?)
+- "Team celebrates birthdays" (how? where? what tradition?)
+- "Maria reads fiction books" (when? always? specific contexts?)
+
+**Guideline**: If a preference, practice, habit, or recommendation applies to a specific context (time, place, situation, purpose, condition), embed that context in the natural language fact so the atomic statement preserves its boundaries.
+
+**Intermediate Entity Exception**: Only create intermediate entities if they represent meaningful concepts with multiple distinct properties:
+- ✅ "Employment Contract 2024" (has salary, duration, benefits, start_date, role, etc.)
+- ✅ "Annual Performance Review" (has ratings, achievements, goals, feedback, etc.)
+- ❌ "User Preferences" (just a container for preference values - use direct User → prefers → X)
+- ❌ "Manager" (just points to a person - use direct Sarah → managed_by → Mike)
+- ❌ "Home Address" (just holds an address - use direct User → has_home_address → "address")
+
+**Guideline**: If the intermediate entity would have only 1-2 properties, make it a direct relationship instead.
+
 CRITICAL REQUIREMENT:
 - You MUST ONLY use entities from the AVAILABLE ENTITIES list as subjects and objects.
 - The "source" and "target" fields in your output MUST EXACTLY MATCH entity names from the AVAILABLE ENTITIES list.
@@ -101,15 +148,6 @@ Follow these instructions:
    - source: The subject entity (MUST be from AVAILABLE ENTITIES)
    - predicate: The relationship type (can be a descriptive phrase)
    - target: The object entity (MUST be from AVAILABLE ENTITIES)
-
-## SAME-NAME ENTITY RELATIONSHIP FORMATION
-When entities share identical names but have different types, CREATE explicit relationship statements:
-- **Person-Organization**: "John (Person)" → "owns", "founded", "works for", or "leads" → "John (Company)"
-- **Person-Location**: "Smith (Person)" → "lives in", "founded", or "is associated with" → "Smith (City)"
-- **Event-Location**: "Conference (Event)" → "takes place at" or "is hosted by" → "Conference (Venue)"
-- **Product-Company**: "Tesla (Product)" → "is manufactured by" or "is developed by" → "Tesla (Company)"
-- **MANDATORY**: Always create at least one relationship statement for same-name entities
-- **CONTEXT-DRIVEN**: Choose predicates that accurately reflect the most likely relationship based on available context
 
 ## DURATION AND TEMPORAL CONTEXT ENTITY USAGE
 When Duration or TemporalContext entities are available in AVAILABLE ENTITIES:
@@ -306,6 +344,28 @@ Extract the basic semantic backbone that answers: WHO, WHAT, WHERE, WHEN, WHY, H
 **Rating/Measurement**: Subject → rated/measured → Object
 **Reference**: Document → references → Entity
 **Employment**: Person → works_for → Organization
+
+## ATOMIC BUT CONTEXTUAL FACTS
+
+When extracting facts about preferences, practices, habits, or context-specific information, ALWAYS include the scope/context directly in the fact statement itself. This ensures atomic facts retain their contextual boundaries.
+
+✅ GOOD (Atomic + Contextual):
+- "Sarah prefers morning workouts at the gym"
+- "Family orders pizza for Friday movie nights"
+- "Alex drinks green tea when working late"
+- "Doctor recommends stretching exercises for back pain"
+- "Team celebrates birthdays with lunch outings"
+- "Maria reads fiction books during vacation"
+
+❌ BAD (Atomic but Decontextualized - loses scope):
+- "Sarah prefers morning workouts" (where? at home? at gym? outdoors?)
+- "Family orders pizza" (when? weekends? special occasions? always?)
+- "Alex drinks green tea" (when? all day? specific times? why?)
+- "Doctor recommends stretching" (for what? general health? specific condition?)
+- "Team celebrates birthdays" (how? where? what tradition?)
+- "Maria reads fiction books" (when? always? specific contexts?)
+
+**Guideline**: If a preference, practice, habit, or recommendation applies to a specific context (time, place, situation, purpose, condition), embed that context in the natural language fact so the atomic statement preserves its boundaries.
 
 ## RELATIONSHIP QUALITY HIERARCHY
 
