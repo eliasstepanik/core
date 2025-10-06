@@ -17,13 +17,12 @@ import { generate, processTag } from "./stream-utils";
 import { type AgentMessage, AgentMessageType, Message } from "./types";
 import { type MCP } from "../utils/mcp";
 import {
-  WebSearchSchema,
   type ExecutionState,
   type HistoryStep,
   type Resource,
   type TotalCost,
 } from "../utils/types";
-import { flattenObject, webSearch } from "../utils/utils";
+import { flattenObject } from "../utils/utils";
 import { searchMemory, addMemory, searchSpaces } from "./memory-utils";
 
 interface LLMOutputInterface {
@@ -117,12 +116,6 @@ const searchSpacesTool = tool({
     required: [],
     additionalProperties: false,
   }),
-});
-
-const websearchTool = tool({
-  description:
-    "Search the web for current information and news. Use this when you need up-to-date information that might not be in your training data. Try different search strategies: broad terms first, then specific phrases, keywords, exact quotes. Use multiple searches with varied approaches to get comprehensive results.",
-  parameters: WebSearchSchema,
 });
 
 const loadMCPTools = tool({
@@ -310,7 +303,6 @@ export async function* run(
     "core--search_memory": searchMemoryTool,
     "core--add_memory": addMemoryTool,
     "core--search_spaces": searchSpacesTool,
-    "core--websearch": websearchTool,
     "core--load_mcp": loadMCPTools,
   };
 
@@ -577,16 +569,6 @@ export async function* run(
                     apiError,
                   });
                   result = "Search spaces call failed";
-                }
-              } else if (toolName === "websearch") {
-                try {
-                  result = await webSearch(skillInput);
-                } catch (apiError) {
-                  logger.error("Web search failed", {
-                    apiError,
-                  });
-                  result =
-                    "Web search failed - please check your search configuration";
                 }
               } else if (toolName === "load_mcp") {
                 // Load MCP integration and update available tools

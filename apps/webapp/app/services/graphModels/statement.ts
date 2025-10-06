@@ -211,15 +211,18 @@ export async function findSimilarStatements({
   excludeIds?: string[];
   userId: string;
 }): Promise<Omit<StatementNode, "factEmbedding">[]> {
+  const limit = 100;
   const query = `
-      CALL db.index.vector.queryNodes('statement_embedding', $topK, $factEmbedding)
-      YIELD node AS statement, score
+      CALL db.index.vector.queryNodes('statement_embedding', ${limit*2}, $factEmbedding)
+      YIELD node AS statement
       WHERE statement.userId = $userId
         AND statement.invalidAt IS NULL
-        AND score >= $threshold
         ${excludeIds.length > 0 ? "AND NOT statement.uuid IN $excludeIds" : ""}
+      WITH statement, gds.similarity.cosine(statement.factEmbedding, $factEmbedding) AS score
+      WHERE score >= $threshold
       RETURN statement, score
       ORDER BY score DESC
+      LIMIT ${limit}
     `;
 
   const result = await runQuery(query, {
@@ -227,7 +230,6 @@ export async function findSimilarStatements({
     threshold,
     excludeIds,
     userId,
-    topK: 100,
   });
 
   if (!result || result.length === 0) {
@@ -410,14 +412,17 @@ export async function searchStatementsByEmbedding(params: {
   limit?: number;
   minSimilarity?: number;
 }) {
+  const limit = params.limit || 100;
   const query = `
-  CALL db.index.vector.queryNodes('statement_embedding', $topK, $embedding)
-  YIELD node AS statement, score
+  CALL db.index.vector.queryNodes('statement_embedding', ${limit*2}, $embedding)
+  YIELD node AS statement
   WHERE statement.userId = $userId
     AND statement.invalidAt IS NULL
-    AND score >= $minSimilarity
+  WITH statement, gds.similarity.cosine(statement.factEmbedding, $embedding) AS score
+  WHERE score >= $minSimilarity
   RETURN statement, score
   ORDER BY score DESC
+  LIMIT ${limit}
 `;
 
   const result = await runQuery(query, {
@@ -425,7 +430,6 @@ export async function searchStatementsByEmbedding(params: {
     minSimilarity: params.minSimilarity,
     limit: params.limit,
     userId: params.userId,
-    topK: params.limit || 100,
   });
 
   if (!result || result.length === 0) {

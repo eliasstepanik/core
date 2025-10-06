@@ -278,7 +278,7 @@ export default function BillingSettings() {
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Episodes</span>
+                <span className="text-muted-foreground">Facts</span>
                 <span className="font-medium">
                   {usageSummary.usage.episodes}
                 </span>

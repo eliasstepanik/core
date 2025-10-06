@@ -1,10 +1,6 @@
 import type { EpisodicNode, StatementNode } from "@core/types";
 import { logger } from "./logger.service";
-import {
-  applyCohereReranking,
-  applyCrossEncoderReranking,
-  applyMultiFactorMMRReranking,
-} from "./search/rerank";
+import { applyLLMReranking } from "./search/rerank";
 import {
   getEpisodesByStatements,
   performBfsSearch,
@@ -14,7 +10,6 @@ import {
 import { getEmbedding } from "~/lib/model.server";
 import { prisma } from "~/db.server";
 import { runQuery } from "~/lib/neo4j.server";
-import { env } from "~/env.server";
 
 /**
  * SearchService provides methods to search the reified + temporal knowledge graph
@@ -36,12 +31,21 @@ export class SearchService {
     query: string,
     userId: string,
     options: SearchOptions = {},
-  ): Promise<{ episodes: string[]; facts: { fact: string; validAt: Date; invalidAt: Date | null; relevantScore: number }[] }> {
+    source?: string,
+  ): Promise<{
+    episodes: string[];
+    facts: {
+      fact: string;
+      validAt: Date;
+      invalidAt: Date | null;
+      relevantScore: number;
+    }[];
+  }> {
     const startTime = Date.now();
     // Default options
 
     const opts: Required<SearchOptions> = {
-      limit: options.limit || 10,
+      limit: options.limit || 100,
       maxBfsDepth: options.maxBfsDepth || 4,
       validAt: options.validAt || new Date(),
       startTime: options.startTime || null,
@@ -61,7 +65,7 @@ export class SearchService {
     const [bm25Results, vectorResults, bfsResults] = await Promise.all([
       performBM25Search(query, userId, opts),
       performVectorSearch(queryVector, userId, opts),
-      performBfsSearch(queryVector, userId, opts),
+      performBfsSearch(query, queryVector, userId, opts),
     ]);
 
     logger.info(
@@ -71,16 +75,18 @@ export class SearchService {
     // 2. Apply reranking strategy
     const rankedStatements = await this.rerankResults(
       query,
+      userId,
       { bm25: bm25Results, vector: vectorResults, bfs: bfsResults },
       opts,
     );
 
     // // 3. Apply adaptive filtering based on score threshold and minimum count
     const filteredResults = this.applyAdaptiveFiltering(rankedStatements, opts);
-    // const filteredResults = rankedStatements;
 
     // 3. Return top results
-    const episodes = await getEpisodesByStatements(filteredResults.map((item) => item.statement));
+    const episodes = await getEpisodesByStatements(
+      filteredResults.map((item) => item.statement),
+    );
 
     // Log recall asynchronously (don't await to avoid blocking response)
     const responseTime = Date.now() - startTime;
@@ -90,11 +96,16 @@ export class SearchService {
       filteredResults.map((item) => item.statement),
       opts,
       responseTime,
+      source,
     ).catch((error) => {
       logger.error("Failed to log recall event:", error);
     });
 
-    this.updateRecallCount(userId, episodes, filteredResults.map((item) => item.statement));
+    this.updateRecallCount(
+      userId,
+      episodes,
+      filteredResults.map((item) => item.statement),
+    );
 
     return {
       episodes: episodes.map((episode) => episode.originalContent),
@@ -114,7 +125,7 @@ export class SearchService {
   private applyAdaptiveFiltering(
     results: StatementNode[],
     options: Required<SearchOptions>,
-  ): { statement: StatementNode, score: number }[] {
+  ): { statement: StatementNode; score: number }[] {
     if (results.length === 0) return [];
 
     let isRRF = false;
@@ -152,7 +163,11 @@ export class SearchService {
     // If no scores are available, return the original results
     if (!hasScores) {
       logger.info("No scores found in results, skipping adaptive filtering");
-      return options.limit > 0 ? results.slice(0, options.limit).map((item) => ({ statement: item, score: 0 })) : results.map((item) => ({ statement: item, score: 0 }));
+      return options.limit > 0
+        ? results
+            .slice(0, options.limit)
+            .map((item) => ({ statement: item, score: 0 }))
+        : results.map((item) => ({ statement: item, score: 0 }));
     }
 
     // Sort by score (descending)
@@ -207,9 +222,9 @@ export class SearchService {
     const limitedResults =
       options.limit > 0
         ? filteredResults.slice(
-          0,
-          Math.min(filteredResults.length, options.limit),
-        )
+            0,
+            Math.min(filteredResults.length, options.limit),
+          )
         : filteredResults;
 
     logger.info(
@@ -227,6 +242,7 @@ export class SearchService {
    */
   private async rerankResults(
     query: string,
+    userId: string,
     results: {
       bm25: StatementNode[];
       vector: StatementNode[];
@@ -234,31 +250,17 @@ export class SearchService {
     },
     options: Required<SearchOptions>,
   ): Promise<StatementNode[]> {
-    // Count non-empty result sources
-    const nonEmptySources = [
-      results.bm25.length > 0,
-      results.vector.length > 0,
-      results.bfs.length > 0,
-    ].filter(Boolean).length;
-
-    if (env.COHERE_API_KEY) {
-      logger.info("Using Cohere reranking");
-      return applyCohereReranking(query, results, options);
-    }
-
-    // If results are coming from only one source, use cross-encoder reranking
-    if (nonEmptySources <= 1) {
-      logger.info(
-        "Only one source has results, falling back to cross-encoder reranking",
-      );
-      return applyCrossEncoderReranking(query, results);
-    }
-
-    // Otherwise use combined MultiFactorReranking + MMR for multiple sources
-    return applyMultiFactorMMRReranking(results, {
-      lambda: 0.7, // Balance relevance (0.7) vs diversity (0.3)
-      maxResults: options.limit > 0 ? options.limit * 2 : 100, // Get more results for filtering
+    // Fetch user profile for context
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, id: true },
     });
+
+    const userContext = user
+      ? { name: user.name ?? undefined, userId: user.id }
+      : undefined;
+
+    return applyLLMReranking(query, results, options.limit, userContext);
   }
 
   private async logRecallAsync(
@@ -267,6 +269,7 @@ export class SearchService {
     results: StatementNode[],
     options: Required<SearchOptions>,
     responseTime: number,
+    source?: string,
   ): Promise<void> {
     try {
       // Determine target type based on results
@@ -317,7 +320,7 @@ export class SearchService {
             startTime: options.startTime?.toISOString() || null,
             endTime: options.endTime.toISOString(),
           }),
-          source: "search_api",
+          source: source ?? "search_api",
           responseTimeMs: responseTime,
           userId,
         },
