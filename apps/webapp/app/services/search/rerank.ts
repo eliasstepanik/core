@@ -454,6 +454,7 @@ export async function applyLLMReranking(
     bfs: StatementNode[];
   },
   limit: number = 10,
+  userContext?: { name?: string; userId: string },
 ): Promise<StatementNode[]> {
   const allResults = [
     ...results.bm25.slice(0, 100),
@@ -469,8 +470,16 @@ export async function applyLLMReranking(
   }
 
 
-  const prompt = `You are a relevance filter. Given a user query and a list of facts, identify ONLY the facts that are truly relevant to answering the query.
+  // Build user context section if provided
+  const userContextSection = userContext?.name
+    ? `\nUser Identity Context:
+- The user's name is "${userContext.name}"
+- References to "user", "${userContext.name}", or pronouns like "my/their" refer to the same person
+- When matching queries about "user's X" or "${userContext.name}'s X", these are equivalent\n`
+    : '';
 
+  const prompt = `You are a relevance filter. Given a user query and a list of facts, identify ONLY the facts that are truly relevant to answering the query.
+${userContextSection}
 Query: "${query}"
 
 Facts:
@@ -480,6 +489,7 @@ Instructions:
 - A fact is RELEVANT if it directly answers or provides information needed to answer the query
 - A fact is NOT RELEVANT if it's tangentially related but doesn't answer the query
 - Consider semantic meaning, not just keyword matching
+${userContext?.name ? `- Remember: "user", "${userContext.name}", and possessive references ("my", "their") all refer to the same person` : ''}
 - Only return facts with HIGH relevance (≥80% confidence)
 - If you are not sure, return an empty array
 

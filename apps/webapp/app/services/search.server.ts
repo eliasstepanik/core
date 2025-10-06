@@ -68,6 +68,7 @@ export class SearchService {
     // 2. Apply reranking strategy
     const rankedStatements = await this.rerankResults(
       query,
+      userId,
       { bm25: bm25Results, vector: vectorResults, bfs: bfsResults },
       opts,
     );
@@ -223,6 +224,7 @@ export class SearchService {
    */
   private async rerankResults(
     query: string,
+    userId: string,
     results: {
       bm25: StatementNode[];
       vector: StatementNode[];
@@ -230,8 +232,15 @@ export class SearchService {
     },
     options: Required<SearchOptions>,
   ): Promise<StatementNode[]> {
+    // Fetch user profile for context
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, id: true },
+    });
 
-    return applyLLMReranking(query, results,);
+    const userContext = user ? { name: user.name ?? undefined, userId: user.id } : undefined;
+
+    return applyLLMReranking(query, results, 10, userContext);
   }
 
   private async logRecallAsync(
