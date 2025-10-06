@@ -469,27 +469,26 @@ export async function applyLLMReranking(
     return [];
   }
 
-
   // Build user context section if provided
   const userContextSection = userContext?.name
     ? `\nUser Identity Context:
 - The user's name is "${userContext.name}"
 - References to "user", "${userContext.name}", or pronouns like "my/their" refer to the same person
 - When matching queries about "user's X" or "${userContext.name}'s X", these are equivalent\n`
-    : '';
+    : "";
 
   const prompt = `You are a relevance filter. Given a user query and a list of facts, identify ONLY the facts that are truly relevant to answering the query.
 ${userContextSection}
 Query: "${query}"
 
 Facts:
-${uniqueResults.map((r, i) => `${i}. ${r.fact}`).join('\n')}
+${uniqueResults.map((r, i) => `${i}. ${r.fact}`).join("\n")}
 
 Instructions:
 - A fact is RELEVANT if it directly answers or provides information needed to answer the query
 - A fact is NOT RELEVANT if it's tangentially related but doesn't answer the query
 - Consider semantic meaning, not just keyword matching
-${userContext?.name ? `- Remember: "user", "${userContext.name}", and possessive references ("my", "their") all refer to the same person` : ''}
+${userContext?.name ? `- Remember: "user", "${userContext.name}", and possessive references ("my", "their") all refer to the same person` : ""}
 - Only return facts with HIGH relevance (≥80% confidence)
 - If you are not sure, return an empty array
 
@@ -503,9 +502,11 @@ Return ONLY the numbers of highly relevant facts inside <output> tags as a JSON 
     await makeModelCall(
       false,
       [{ role: "user", content: prompt }],
-      (text) => { responseText = text; },
-      { temperature: 0},
-      'high'
+      (text) => {
+        responseText = text;
+      },
+      { temperature: 0 },
+      "high",
     );
 
     // Extract array from <output>[1, 5, 7]</output>
@@ -513,22 +514,29 @@ Return ONLY the numbers of highly relevant facts inside <output> tags as a JSON 
     if (outputMatch && outputMatch[1]) {
       responseText = outputMatch[1].trim();
       const parsedResponse = JSON.parse(responseText || "[]");
-      const extractedIndices = Array.isArray(parsedResponse) ? parsedResponse : (parsedResponse.entities || []);
-
+      const extractedIndices = Array.isArray(parsedResponse)
+        ? parsedResponse
+        : parsedResponse.entities || [];
 
       if (extractedIndices.length === 0) {
-        logger.warn("LLM reranking returned no valid indices, falling back to original order");
+        logger.warn(
+          "LLM reranking returned no valid indices, falling back to original order",
+        );
         return [];
       }
 
-      logger.info(`LLM reranking selected ${extractedIndices.length} relevant facts`);
+      logger.info(
+        `LLM reranking selected ${extractedIndices.length} relevant facts`,
+      );
       const selected = extractedIndices.map((i: number) => uniqueResults[i]);
       return selected;
     }
-    
+
     return uniqueResults.slice(0, limit);
   } catch (error) {
-    logger.error("LLM reranking failed, falling back to original order:", { error });
+    logger.error("LLM reranking failed, falling back to original order:", {
+      error,
+    });
     return uniqueResults.slice(0, limit);
   }
 }
@@ -589,7 +597,7 @@ export async function applyCohereReranking(
       `Cohere reranking ${documents.length} statements with model ${model}`,
     );
     logger.info(`Cohere query: "${query}"`);
-    logger.info(`First 5 documents: ${documents.slice(0, 5).join(' | ')}`);
+    logger.info(`First 5 documents: ${documents.slice(0, 5).join(" | ")}`);
 
     // Call Cohere Rerank API
     const response = await cohere.rerank({
@@ -602,18 +610,23 @@ export async function applyCohereReranking(
     console.log("Cohere reranking billed units:", response.meta?.billedUnits);
 
     // Log top 5 Cohere results for debugging
-    logger.info(`Cohere top 5 results:\n${response.results.slice(0, 5).map((r, i) =>
-      `  ${i + 1}. [${r.relevanceScore.toFixed(4)}] ${documents[r.index].substring(0, 80)}...`
-    ).join('\n')}`);
+    logger.info(
+      `Cohere top 5 results:\n${response.results
+        .slice(0, 5)
+        .map(
+          (r, i) =>
+            `  ${i + 1}. [${r.relevanceScore.toFixed(4)}] ${documents[r.index].substring(0, 80)}...`,
+        )
+        .join("\n")}`,
+    );
 
     // Map results back to StatementNodes with Cohere scores
-    const rerankedResults = response.results
-      .map((result, index) => ({
-        ...uniqueResults[result.index],
-        cohereScore: result.relevanceScore,
-        cohereRank: index + 1,
-      }))
-      // .filter((result) => result.cohereScore >= Number(env.COHERE_SCORE_THRESHOLD));
+    const rerankedResults = response.results.map((result, index) => ({
+      ...uniqueResults[result.index],
+      cohereScore: result.relevanceScore,
+      cohereRank: index + 1,
+    }));
+    // .filter((result) => result.cohereScore >= Number(env.COHERE_SCORE_THRESHOLD));
 
     const responseTime = Date.now() - startTime;
     logger.info(

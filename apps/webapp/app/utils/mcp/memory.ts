@@ -198,10 +198,15 @@ async function handleMemoryIngest(args: any) {
 // Handler for memory_search
 async function handleMemorySearch(args: any) {
   try {
-    const results = await searchService.search(args.query, args.userId, {
-      startTime: args.startTime ? new Date(args.startTime) : undefined,
-      endTime: args.endTime ? new Date(args.endTime) : undefined,
-    });
+    const results = await searchService.search(
+      args.query,
+      args.userId,
+      {
+        startTime: args.startTime ? new Date(args.startTime) : undefined,
+        endTime: args.endTime ? new Date(args.endTime) : undefined,
+      },
+      args.source,
+    );
 
     return {
       content: [

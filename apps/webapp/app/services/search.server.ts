@@ -1,8 +1,6 @@
 import type { EpisodicNode, StatementNode } from "@core/types";
 import { logger } from "./logger.service";
-import {
-  applyLLMReranking,
-} from "./search/rerank";
+import { applyLLMReranking } from "./search/rerank";
 import {
   getEpisodesByStatements,
   performBfsSearch,
@@ -33,7 +31,16 @@ export class SearchService {
     query: string,
     userId: string,
     options: SearchOptions = {},
-  ): Promise<{ episodes: string[]; facts: { fact: string; validAt: Date; invalidAt: Date | null; relevantScore: number }[] }> {
+    source?: string,
+  ): Promise<{
+    episodes: string[];
+    facts: {
+      fact: string;
+      validAt: Date;
+      invalidAt: Date | null;
+      relevantScore: number;
+    }[];
+  }> {
     const startTime = Date.now();
     // Default options
 
@@ -77,7 +84,9 @@ export class SearchService {
     const filteredResults = this.applyAdaptiveFiltering(rankedStatements, opts);
 
     // 3. Return top results
-    const episodes = await getEpisodesByStatements(filteredResults.map((item) => item.statement));
+    const episodes = await getEpisodesByStatements(
+      filteredResults.map((item) => item.statement),
+    );
 
     // Log recall asynchronously (don't await to avoid blocking response)
     const responseTime = Date.now() - startTime;
@@ -87,11 +96,16 @@ export class SearchService {
       filteredResults.map((item) => item.statement),
       opts,
       responseTime,
+      source,
     ).catch((error) => {
       logger.error("Failed to log recall event:", error);
     });
 
-    this.updateRecallCount(userId, episodes, filteredResults.map((item) => item.statement));
+    this.updateRecallCount(
+      userId,
+      episodes,
+      filteredResults.map((item) => item.statement),
+    );
 
     return {
       episodes: episodes.map((episode) => episode.originalContent),
@@ -111,7 +125,7 @@ export class SearchService {
   private applyAdaptiveFiltering(
     results: StatementNode[],
     options: Required<SearchOptions>,
-  ): { statement: StatementNode, score: number }[] {
+  ): { statement: StatementNode; score: number }[] {
     if (results.length === 0) return [];
 
     let isRRF = false;
@@ -149,7 +163,11 @@ export class SearchService {
     // If no scores are available, return the original results
     if (!hasScores) {
       logger.info("No scores found in results, skipping adaptive filtering");
-      return options.limit > 0 ? results.slice(0, options.limit).map((item) => ({ statement: item, score: 0 })) : results.map((item) => ({ statement: item, score: 0 }));
+      return options.limit > 0
+        ? results
+            .slice(0, options.limit)
+            .map((item) => ({ statement: item, score: 0 }))
+        : results.map((item) => ({ statement: item, score: 0 }));
     }
 
     // Sort by score (descending)
@@ -204,9 +222,9 @@ export class SearchService {
     const limitedResults =
       options.limit > 0
         ? filteredResults.slice(
-          0,
-          Math.min(filteredResults.length, options.limit),
-        )
+            0,
+            Math.min(filteredResults.length, options.limit),
+          )
         : filteredResults;
 
     logger.info(
@@ -238,7 +256,9 @@ export class SearchService {
       select: { name: true, id: true },
     });
 
-    const userContext = user ? { name: user.name ?? undefined, userId: user.id } : undefined;
+    const userContext = user
+      ? { name: user.name ?? undefined, userId: user.id }
+      : undefined;
 
     return applyLLMReranking(query, results, 10, userContext);
   }
@@ -249,6 +269,7 @@ export class SearchService {
     results: StatementNode[],
     options: Required<SearchOptions>,
     responseTime: number,
+    source?: string,
   ): Promise<void> {
     try {
       // Determine target type based on results
@@ -299,7 +320,7 @@ export class SearchService {
             startTime: options.startTime?.toISOString() || null,
             endTime: options.endTime.toISOString(),
           }),
-          source: "search_api",
+          source: source ?? "search_api",
           responseTimeMs: responseTime,
           userId,
         },
