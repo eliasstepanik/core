@@ -260,7 +260,7 @@ export class SearchService {
       ? { name: user.name ?? undefined, userId: user.id }
       : undefined;
 
-    return applyLLMReranking(query, results, 10, userContext);
+    return applyLLMReranking(query, results, options.limit, userContext);
   }
 
   private async logRecallAsync(

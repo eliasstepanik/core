@@ -650,10 +650,6 @@ export async function deductCredits(
         }),
       ]);
     } else {
-      // Free plan - throw error
-      throw new InsufficientCreditsError(
-        "Insufficient credits. Please upgrade to Pro or Max plan to continue.",
-      );
     }
   }
 }
