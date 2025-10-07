@@ -1,16 +1,7 @@
 import { z } from "zod";
-import {
-  createActionApiRoute,
-  createHybridActionApiRoute,
-} from "~/services/routeBuilders/apiBuilder.server";
+import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { SpaceService } from "~/services/space.server";
 import { json } from "@remix-run/node";
-import {
-  createSpace,
-  deleteSpace,
-  updateSpace,
-} from "~/services/graphModels/space";
-import { prisma } from "~/db.server";
 import { logger } from "~/services/logger.service";
 import { triggerSpaceAssignment } from "~/trigger/spaces/space-assignment";
 
@@ -33,45 +24,26 @@ const { loader, action } = createHybridActionApiRoute(
     const { spaceId } = params;
     const spaceService = new SpaceService();
 
-    // Verify space exists and belongs to user
-    const space = await prisma.space.findUnique({
-      where: {
-        id: spaceId,
-      },
-    });
-    if (!space) {
-      return json({ error: "Space not found" }, { status: 404 });
-    }
+    // Reset the space (clears all assignments, summary, and metadata)
+    const space = await spaceService.resetSpace(spaceId, userId);
 
-    // Get statements in the space
-    await deleteSpace(spaceId, userId);
+    logger.info(`Reset space ${space.id} successfully`);
 
-    await createSpace(
-      space.id,
-      space.name.trim(),
-      space.description?.trim(),
-      userId,
-    );
-
-    await spaceService.updateSpace(space.id, { status: "pending" }, userId);
-
-    logger.info(`Created space ${space.id} successfully`);
-
-    // Trigger automatic LLM assignment for the new space
+    // Trigger automatic episode assignment for the reset space
     try {
       await triggerSpaceAssignment({
         userId: userId,
         workspaceId: space.workspaceId,
         mode: "new_space",
         newSpaceId: space.id,
-        batchSize: 25, // Analyze recent statements for the new space
+        batchSize: 20, // Analyze recent episodes for reassignment
       });
 
-      logger.info(`Triggered LLM space assignment for new space ${space.id}`);
+      logger.info(`Triggered space assignment for reset space ${space.id}`);
     } catch (error) {
-      // Don't fail space creation if LLM assignment fails
+      // Don't fail space reset if assignment fails
       logger.warn(
-        `Failed to trigger LLM assignment for space ${space.id}:`,
+        `Failed to trigger assignment for space ${space.id}:`,
         error as Record<string, unknown>,
       );
     }

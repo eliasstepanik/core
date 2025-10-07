@@ -5,10 +5,8 @@ import { makeModelCall } from "~/lib/model.server";
 import { createBatch, getBatch } from "~/lib/batch.server";
 import { runQuery } from "~/lib/neo4j.server";
 import {
-  assignStatementsToSpace,
-  shouldTriggerSpacePattern,
-  atomicUpdatePatternTrigger,
-  getSpaceStatementCount,
+  assignEpisodesToSpace,
+  getSpaceEpisodeCount,
 } from "~/services/graphModels/space";
 import { triggerSpaceSummary } from "./space-summary";
 import { triggerSpacePattern } from "./space-pattern";
@@ -29,25 +27,24 @@ interface SpaceAssignmentPayload {
   batchSize?: number; // Processing batch size
 }
 
-interface StatementData {
+interface EpisodeData {
   uuid: string;
-  fact: string;
-  subject: string;
-  predicate: string;
-  object: string;
+  content: string;
+  originalContent: string;
+  source: string;
   createdAt: Date;
-  spaceIds: string[];
+  metadata: any;
 }
 
 interface SpaceData {
   uuid: string;
   name: string;
   description?: string;
-  statementCount: number;
+  episodeCount: number;
 }
 
 interface AssignmentResult {
-  statementId: string;
+  episodeId: string;
   spaceIds: string[];
   confidence: number;
   reasoning?: string;
@@ -55,122 +52,28 @@ interface AssignmentResult {
 
 const CONFIG = {
   newSpaceMode: {
-    batchSize: 200,
-    confidenceThreshold: 0.85, // High quality threshold for new space creation
+    batchSize: 20,
+    confidenceThreshold: 0.75, // Intent-based threshold for new space creation
     useBatchAPI: true, // Use batch API for new space mode
-    minStatementsForBatch: 10, // Minimum statements to use batch API
+    minEpisodesForBatch: 5, // Minimum episodes to use batch API
   },
   episodeMode: {
-    batchSize: 200,
-    confidenceThreshold: 0.85, // Strict threshold for theme validation (5+ statements)
+    batchSize: 20,
+    confidenceThreshold: 0.75, // Intent-based threshold for episode assignment
     useBatchAPI: true, // Use batch API for episode mode
-    minStatementsForBatch: 5, // Minimum statements to use batch API
+    minEpisodesForBatch: 5, // Minimum episodes to use batch API
   },
 };
 
 // Zod schema for LLM response validation
 const AssignmentResultSchema = z.array(
   z.object({
-    statementId: z.string(),
+    episodeId: z.string(),
     addSpaceId: z.array(z.string()),
     confidence: z.number(),
+    reasoning: z.string(),
   }),
 );
-
-/**
- * Check and trigger space patterns for spaces that meet growth thresholds
- */
-async function checkAndTriggerSpacePatterns(
-  affectedSpaces: Set<string>,
-  userId: string,
-  workspaceId: string,
-): Promise<void> {
-  if (affectedSpaces.size === 0) return;
-
-  logger.info(
-    `Checking pattern triggers for ${affectedSpaces.size} affected spaces`,
-    {
-      userId,
-      spaceIds: Array.from(affectedSpaces),
-    },
-  );
-
-  const patternPromises = Array.from(affectedSpaces).map(async (spaceId) => {
-    try {
-      // Check if this space should trigger pattern analysis
-      const triggerCheck = await shouldTriggerSpacePattern(spaceId, userId);
-
-      if (triggerCheck.shouldTrigger) {
-        // Atomically update the trigger timestamp to prevent race conditions
-        const updateResult = await atomicUpdatePatternTrigger(
-          spaceId,
-          triggerCheck.currentCount,
-        );
-
-        if (updateResult?.updated) {
-          const triggerSource = updateResult.isNewSpace
-            ? "new_space"
-            : "growth_threshold";
-
-          logger.info(`Triggering space pattern analysis`, {
-            spaceId,
-            triggerSource,
-            currentCount: triggerCheck.currentCount,
-            isNewSpace: updateResult.isNewSpace,
-          });
-
-          await triggerSpacePattern({
-            userId,
-            workspaceId,
-            spaceId,
-            triggerSource: triggerSource as "new_space" | "growth_threshold",
-          });
-
-          return { success: true, spaceId, triggerSource };
-        } else {
-          logger.info(`Pattern trigger update failed or no longer needed`, {
-            spaceId,
-            triggerCheck,
-          });
-          return { success: false, spaceId, reason: "update_failed" };
-        }
-      } else {
-        logger.info(`Space does not meet pattern trigger criteria`, {
-          spaceId,
-          currentCount: triggerCheck.currentCount,
-          isNewSpace: triggerCheck.isNewSpace,
-        });
-        return { success: false, spaceId, reason: "threshold_not_met" };
-      }
-    } catch (error) {
-      logger.error(`Error checking pattern trigger for space ${spaceId}:`, {
-        error,
-        userId,
-      });
-      return {
-        success: false,
-        spaceId,
-        error: error instanceof Error ? error.message : "unknown_error",
-      };
-    }
-  });
-
-  const results = await Promise.allSettled(patternPromises);
-  const successful = results.filter(
-    (r) => r.status === "fulfilled" && r.value.success,
-  ).length;
-  const failed = results.filter(
-    (r) =>
-      r.status === "rejected" || (r.status === "fulfilled" && !r.value.success),
-  ).length;
-
-  logger.info(`Pattern trigger check completed`, {
-    userId,
-    totalSpaces: affectedSpaces.size,
-    successful,
-    failed,
-  });
-}
 
 export const spaceAssignmentTask = task({
   id: "space-assignment",
@@ -210,38 +113,38 @@ export const spaceAssignmentTask = task({
         };
       }
 
-      // 2. Get statements to analyze based on mode
-      const statements = await getStatementsToAnalyze(userId, mode, {
+      // 2. Get episodes to analyze based on mode
+      const episodes = await getEpisodesToAnalyze(userId, mode, {
         newSpaceId,
         episodeIds,
       });
 
-      if (statements.length === 0) {
+      if (episodes.length === 0) {
         logger.info(
-          `No statements to analyze for user ${userId} in ${mode} mode`,
+          `No episodes to analyze for user ${userId} in ${mode} mode`,
         );
         return {
           success: true,
-          message: "No statements to analyze",
+          message: "No episodes to analyze",
           processed: 0,
         };
       }
 
-      // 3. Process statements using batch AI or fallback to sequential
+      // 3. Process episodes using batch AI or fallback to sequential
       const config =
         mode === "new_space" ? CONFIG.newSpaceMode : CONFIG.episodeMode;
       // const shouldUseBatchAPI =
-      // config.useBatchAPI && statements.length >= config.minStatementsForBatch;
+      // config.useBatchAPI && episodes.length >= config.minEpisodesForBatch;
       const shouldUseBatchAPI = true;
 
       let totalProcessed = 0;
       let totalAssignments = 0;
       let totalBatches = 0;
-      const affectedSpaces = new Set<string>(); // Track spaces that received new statements
+      const affectedSpaces = new Set<string>(); // Track spaces that received new episodes
 
       if (shouldUseBatchAPI) {
         logger.info(
-          `Using Batch AI processing for ${statements.length} statements`,
+          `Using Batch AI processing for ${episodes.length} episodes`,
           {
             mode,
             userId,
@@ -250,7 +153,7 @@ export const spaceAssignmentTask = task({
         );
 
         const batchResult = await processBatchAI(
-          statements,
+          episodes,
           spaces,
           userId,
           mode,
@@ -264,22 +167,22 @@ export const spaceAssignmentTask = task({
         );
       } else {
         logger.info(
-          `Using sequential processing for ${statements.length} statements (below batch threshold)`,
+          `Using sequential processing for ${episodes.length} episodes (below batch threshold)`,
           {
             mode,
             userId,
-            minRequired: config.minStatementsForBatch,
+            minRequired: config.minEpisodesForBatch,
           },
         );
 
-        // Fallback to sequential processing for smaller statement sets
-        totalBatches = Math.ceil(statements.length / batchSize);
+        // Fallback to sequential processing for smaller episode sets
+        totalBatches = Math.ceil(episodes.length / batchSize);
 
         for (let i = 0; i < totalBatches; i++) {
-          const batch = statements.slice(i * batchSize, (i + 1) * batchSize);
+          const batch = episodes.slice(i * batchSize, (i + 1) * batchSize);
 
           logger.info(
-            `Processing batch ${i + 1}/${totalBatches} with ${batch.length} statements`,
+            `Processing batch ${i + 1}/${totalBatches} with ${batch.length} episodes`,
             {
               mode,
               userId,
@@ -384,32 +287,7 @@ export const spaceAssignmentTask = task({
         }
       }
 
-      // 5. Check and trigger space patterns for qualifying spaces (new spaces or 100+ growth)
-      if (affectedSpaces.size > 0) {
-        try {
-          logger.info(`Checking pattern triggers for affected spaces`, {
-            userId,
-            mode,
-            affectedSpacesCount: affectedSpaces.size,
-          });
-
-          await checkAndTriggerSpacePatterns(
-            affectedSpaces,
-            userId,
-            workspaceId,
-          );
-        } catch (patternError) {
-          // Don't fail the assignment if pattern triggering fails
-          logger.warn(`Failed to trigger space patterns after assignment:`, {
-            error: patternError,
-            userId,
-            mode,
-            affectedSpaces: Array.from(affectedSpaces),
-          });
-        }
-      }
-
-      // 7. Update space status to "ready" after all processing is complete
+      // 6. Update space status to "ready" after all processing is complete
       if (affectedSpaces.size > 0) {
         try {
           await updateMultipleSpaceStatuses(
@@ -451,36 +329,29 @@ export const spaceAssignmentTask = task({
   },
 });
 
-async function getStatementsToAnalyze(
+async function getEpisodesToAnalyze(
   userId: string,
   mode: "new_space" | "episode",
   options: { newSpaceId?: string; episodeIds?: string[] },
-): Promise<StatementData[]> {
+): Promise<EpisodeData[]> {
   let query: string;
   let params: any = { userId };
 
   if (mode === "new_space") {
-    // For new space: analyze all statements (or recent ones)
+    // For new space: analyze all recent episodes
     query = `
-      MATCH (s:Statement)
-      WHERE s.userId = $userId
-      MATCH (s)-[:HAS_SUBJECT]->(subj:Entity)
-      MATCH (s)-[:HAS_PREDICATE]->(pred:Entity)
-      MATCH (s)-[:HAS_OBJECT]->(obj:Entity)
-      RETURN s, subj.name as subject, pred.name as predicate, obj.name as object
-      ORDER BY s.createdAt DESC
+      MATCH (e:Episode {userId: $userId})
+      RETURN e
+      ORDER BY e.createdAt DESC
+      LIMIT 1000
     `;
   } else {
-    // Optimized query: Use UNWIND for better performance with IN clause
-    // and combine entity lookups in single pattern
+    // For episode mode: analyze specific episodes
     query = `
       UNWIND $episodeIds AS episodeId
-      MATCH (e:Episode {uuid: episodeId, userId: $userId})-[:HAS_PROVENANCE]->(s:Statement)
-      MATCH (s)-[:HAS_SUBJECT]->(subj:Entity),
-            (s)-[:HAS_PREDICATE]->(pred:Entity),
-            (s)-[:HAS_OBJECT]->(obj:Entity)
-      RETURN s, subj.name as subject, pred.name as predicate, obj.name as object
-      ORDER BY s.createdAt DESC
+      MATCH (e:Episode {uuid: episodeId, userId: $userId})
+      RETURN e
+      ORDER BY e.createdAt DESC
     `;
     params.episodeIds = options.episodeIds;
   }
@@ -488,21 +359,20 @@ async function getStatementsToAnalyze(
   const result = await runQuery(query, params);
 
   return result.map((record) => {
-    const statement = record.get("s").properties;
+    const episode = record.get("e").properties;
     return {
-      uuid: statement.uuid,
-      fact: statement.fact,
-      subject: record.get("subject"),
-      predicate: record.get("predicate"),
-      object: record.get("object"),
-      createdAt: new Date(statement.createdAt),
-      spaceIds: statement.spaceIds || [],
+      uuid: episode.uuid,
+      content: episode.content,
+      originalContent: episode.originalContent,
+      source: episode.source,
+      createdAt: new Date(episode.createdAt),
+      metadata: JSON.parse(episode.metadata || "{}"),
     };
   });
 }
 
 async function processBatchAI(
-  statements: StatementData[],
+  episodes: EpisodeData[],
   spaces: Space[],
   userId: string,
   mode: "new_space" | "episode",
@@ -514,19 +384,19 @@ async function processBatchAI(
   affectedSpaces?: string[];
 }> {
   try {
-    // Create batches of statements
-    const statementBatches: StatementData[][] = [];
-    for (let i = 0; i < statements.length; i += batchSize) {
-      statementBatches.push(statements.slice(i, i + batchSize));
+    // Create batches of episodes
+    const episodeBatches: EpisodeData[][] = [];
+    for (let i = 0; i < episodes.length; i += batchSize) {
+      episodeBatches.push(episodes.slice(i, i + batchSize));
     }
 
     logger.info(
-      `Creating ${statementBatches.length} batch AI requests for ${statements.length} statements`,
+      `Creating ${episodeBatches.length} batch AI requests for ${episodes.length} episodes`,
     );
 
     // Create batch requests with prompts
     const batchRequests = await Promise.all(
-      statementBatches.map(async (batch, index) => {
+      episodeBatches.map(async (batch, index) => {
         const promptMessages = await createLLMPrompt(
           batch,
           spaces,
@@ -540,7 +410,7 @@ async function processBatchAI(
           promptMessages.find((m) => m.role === "user")?.content || "";
 
         return {
-          customId: `space-assignment-${userId}-${mode}-${index}`,
+          customId: `episode-space-assignment-${userId}-${mode}-${index}`,
           messages: [{ role: "user" as const, content: userPrompt }],
           systemPrompt,
         };
@@ -627,10 +497,10 @@ async function processBatchAI(
         logger.info(
           `Falling back to sequential processing due to batch failures`,
         );
-        return await processBatch(statements, spaces, userId, mode, newSpaceId);
+        return await processBatch(episodes, spaces, userId, mode, newSpaceId);
       }
 
-      return { processed: statements.length, assignments: 0 };
+      return { processed: episodes.length, assignments: 0 };
     }
 
     logger.info(`Processing batch results`, {
@@ -666,22 +536,24 @@ async function processBatchAI(
       // Parse assignments from this batch result
       let assignments: AssignmentResult[] = [];
       try {
-        // Extract statement batch info from customId
-        const [, , , batchIndex] = result.customId.split("-");
-        const statementBatch = statementBatches[parseInt(batchIndex)];
+        // Extract episode batch info from customId
+        const batchIndexMatch = result.customId.match(/-(\d+)$/);
+        const batchIndex = batchIndexMatch ? parseInt(batchIndexMatch[1]) : 0;
+        const episodeBatch = episodeBatches[batchIndex];
 
         if (Array.isArray(result.response)) {
           // Handle direct array response (from structured output)
           assignments = result.response.map((a) => ({
-            statementId: a.statementId,
+            episodeId: a.episodeId,
             spaceIds: a.addSpaceId || [],
-            confidence: a.confidence || 0.8,
+            confidence: a.confidence || 0.75,
+            reasoning: a.reasoning,
           }));
         } else if (typeof result.response === "string") {
           // Parse from text response with <output> tags (fallback for non-structured output)
           assignments = parseLLMResponseWithTags(
             result.response,
-            statementBatch,
+            episodeBatch,
             spaces,
           );
         } else if (typeof result.response === "object" && result.response) {
@@ -694,15 +566,16 @@ async function processBatchAI(
 
             if (Array.isArray(responseData)) {
               assignments = responseData.map((a) => ({
-                statementId: a.statementId,
+                episodeId: a.episodeId,
                 spaceIds: a.addSpaceId || [],
-                confidence: a.confidence || 0.8,
+                confidence: a.confidence || 0.75,
+                reasoning: a.reasoning,
               }));
             } else {
               // Fallback parsing
               assignments = parseLLMResponse(
                 JSON.stringify(result.response),
-                statementBatch,
+                episodeBatch,
                 spaces,
               );
             }
@@ -717,7 +590,7 @@ async function processBatchAI(
           // Fallback parsing
           assignments = parseLLMResponse(
             JSON.stringify(result.response),
-            statementBatch,
+            episodeBatch,
             spaces,
           );
         }
@@ -728,8 +601,8 @@ async function processBatchAI(
         continue;
       }
 
-      // Group statements by space for batch assignment
-      const spaceToStatements = new Map<string, string[]>();
+      // Group episodes by space for batch assignment
+      const spaceToEpisodes = new Map<string, string[]>();
 
       for (const assignment of assignments) {
         if (
@@ -737,30 +610,30 @@ async function processBatchAI(
           assignment.confidence >= confidenceThreshold
         ) {
           for (const spaceId of assignment.spaceIds) {
-            if (!spaceToStatements.has(spaceId)) {
-              spaceToStatements.set(spaceId, []);
+            if (!spaceToEpisodes.has(spaceId)) {
+              spaceToEpisodes.set(spaceId, []);
             }
-            spaceToStatements.get(spaceId)!.push(assignment.statementId);
+            spaceToEpisodes.get(spaceId)!.push(assignment.episodeId);
           }
         }
       }
 
       // Apply batch assignments - one call per space
-      for (const [spaceId, statementIds] of spaceToStatements) {
+      for (const [spaceId, episodeIds] of spaceToEpisodes) {
         try {
-          const assignmentResult = await assignStatementsToSpace(
-            statementIds,
+          const assignmentResult = await assignEpisodesToSpace(
+            episodeIds,
             spaceId,
             userId,
           );
 
           if (assignmentResult.success) {
-            totalAssignments += statementIds.length;
+            totalAssignments += episodeIds.length;
             affectedSpaces.add(spaceId);
             logger.info(
-              `Batch AI assigned ${statementIds.length} statements to space ${spaceId}`,
+              `Batch AI assigned ${episodeIds.length} episodes to space ${spaceId}`,
               {
-                statementIds,
+                episodeIds,
                 mode,
                 batchId: result.customId,
               },
@@ -768,8 +641,8 @@ async function processBatchAI(
           }
         } catch (error) {
           logger.warn(
-            `Failed to assign ${statementIds.length} statements to space ${spaceId}:`,
-            { error, statementIds },
+            `Failed to assign ${episodeIds.length} episodes to space ${spaceId}:`,
+            { error, episodeIds },
           );
         }
       }
@@ -778,7 +651,7 @@ async function processBatchAI(
     // Log final batch processing results
     logger.info(`Batch AI processing completed`, {
       batchId,
-      totalStatements: statements.length,
+      totalEpisodes: episodes.length,
       processedBatches: batch.results.length,
       totalAssignments,
       affectedSpaces: affectedSpaces.size,
@@ -786,7 +659,7 @@ async function processBatchAI(
       failedRequests: batch.failedRequests || 0,
     });
 
-    // If we have significant failures, consider fallback processing for remaining statements
+    // If we have significant failures, consider fallback processing for remaining episodes
     const failureRate = batch.failedRequests
       ? batch.failedRequests / batch.totalRequests
       : 0;
@@ -798,7 +671,7 @@ async function processBatchAI(
     }
 
     return {
-      processed: statements.length,
+      processed: episodes.length,
       assignments: totalAssignments,
       affectedSpaces: Array.from(affectedSpaces),
     };
@@ -809,7 +682,7 @@ async function processBatchAI(
 }
 
 async function processBatch(
-  statements: StatementData[],
+  episodes: EpisodeData[],
   spaces: Space[],
   userId: string,
   mode: "new_space" | "episode",
@@ -822,25 +695,25 @@ async function processBatch(
   try {
     // Create the LLM prompt based on mode
     const prompt = await createLLMPrompt(
-      statements,
+      episodes,
       spaces,
       mode,
       newSpaceId,
       userId,
     );
 
-    // Space assignment is LOW complexity (rule-based classification with confidence scores)
+    // Episode-intent matching is MEDIUM complexity (semantic analysis with intent alignment)
     let responseText = "";
     await makeModelCall(false, prompt, (text: string) => {
       responseText = text;
-    }, undefined, 'low');
+    }, undefined, 'high');
 
     // Response text is now set by the callback
 
     // Parse LLM response
     const assignments = parseLLMResponseWithTags(
       responseText,
-      statements,
+      episodes,
       spaces,
     );
 
@@ -860,8 +733,8 @@ async function processBatch(
         // Assign to each space individually to track metadata properly
         for (const spaceId of assignment.spaceIds) {
           try {
-            const result = await assignStatementsToSpace(
-              [assignment.statementId],
+            const result = await assignEpisodesToSpace(
+              [assignment.episodeId],
               spaceId,
               userId,
             );
@@ -871,7 +744,7 @@ async function processBatch(
               affectedSpaces.add(spaceId);
 
               logger.info(
-                `LLM assigned statement ${assignment.statementId} to space ${spaceId}`,
+                `LLM assigned episode ${assignment.episodeId} to space ${spaceId}`,
                 {
                   confidence: assignment.confidence,
                   reasoning: assignment.reasoning || "No reasoning",
@@ -881,7 +754,7 @@ async function processBatch(
             }
           } catch (error) {
             logger.warn(
-              `Failed to assign statement ${assignment.statementId} to space ${spaceId}:`,
+              `Failed to assign episode ${assignment.episodeId} to space ${spaceId}:`,
               error as Record<string, unknown>,
             );
           }
@@ -890,7 +763,7 @@ async function processBatch(
     }
 
     return {
-      processed: statements.length,
+      processed: episodes.length,
       assignments: totalAssignments,
       affectedSpaces: Array.from(affectedSpaces),
     };
@@ -901,28 +774,28 @@ async function processBatch(
 }
 
 async function createLLMPrompt(
-  statements: StatementData[],
+  episodes: EpisodeData[],
   spaces: Space[],
   mode: "new_space" | "episode",
   newSpaceId?: string,
   userId?: string,
 ): Promise<CoreMessage[]> {
-  const statementsDescription = statements
+  const episodesDescription = episodes
     .map(
-      (stmt) =>
-        `ID: ${stmt.uuid}\nFACT: ${stmt.fact}\nCURRENT_SPACES: [${stmt.spaceIds.join(", ")}]`,
+      (ep) =>
+        `ID: ${ep.uuid}\nCONTENT: ${ep.content}\nSOURCE: ${ep.source}\nMETADATA: ${JSON.stringify(ep.metadata)}`,
     )
     .join("\n\n");
 
-  // Get enhanced space information with statement counts
+  // Get enhanced space information with episode counts
   const enhancedSpaces = await Promise.all(
     spaces.map(async (space) => {
       const currentCount = userId
-        ? await getSpaceStatementCount(space.id, userId)
+        ? await getSpaceEpisodeCount(space.id, userId)
         : 0;
       return {
         ...space,
-        currentStatementCount: currentCount,
+        currentEpisodeCount: currentCount,
       };
     }),
   );
@@ -937,14 +810,71 @@ async function createLLMPrompt(
     return [
       {
         role: "system",
-        content: `You are analyzing statements for assignment to a newly created space. Focus on semantic relevance to this specific space.
+        content: `You are analyzing episodes for assignment to a newly created space based on the space's intent and purpose.
 
-INSTRUCTIONS:
-1. Analyze each statement's meaning in relation to the new space
-2. Only assign statements that are genuinely relevant (confidence >= 0.85)
-3. Consider semantic meaning, context, and conceptual fit
-4. Be selective - it's better to miss some than include irrelevant ones
-5. If a statement doesn't fit the space well, use empty addSpaceId: []
+CORE PRINCIPLE: Match episodes based on WHAT THE EPISODE IS FUNDAMENTALLY ABOUT (its primary subject), not just keyword overlap.
+
+STEP-BY-STEP FILTERING PROCESS:
+
+Step 1: IDENTIFY PRIMARY SUBJECT
+Ask: "Who or what is this episode fundamentally about?"
+- Is it about a specific person? (by name, or "I"/"my" = speaker)
+- Is it about a system, tool, or organization?
+- Is it about a project, event, or activity?
+- Is it about a concept, topic, or idea?
+
+Step 2: HANDLE IMPLICIT SUBJECTS
+- "I prefer..." or "My..." → Subject is the SPEAKER (check episode source/metadata for identity)
+- "User discussed..." or "Person X said..." → Subject is that specific person
+- "We decided..." → Subject is the group/team/project being discussed
+- If unclear, identify from context clues in the episode content
+
+Step 3: CHECK SUBJECT ALIGNMENT
+Does the PRIMARY SUBJECT match what the space is about?
+- Match the subject identity (right person/thing/concept?)
+- Match the subject relationship (is episode ABOUT the subject or just MENTIONING it?)
+- Match the intent purpose (does episode serve the space's purpose?)
+- Check scope constraints: If space description includes scope requirements (e.g., "cross-context", "not app-specific", "broadly useful", "stable for 3+ months"), verify episode meets those constraints
+
+Step 4: DISTINGUISH SUBJECT vs META
+Ask: "Is this episode ABOUT the subject itself, or ABOUT discussing/analyzing the subject?"
+- ABOUT subject: Episode contains actual content related to subject
+- META-discussion: Episode discusses how to handle/analyze/organize the subject
+- Only assign if episode is ABOUT the subject, not meta-discussion
+
+Step 5: VERIFY CONFIDENCE
+Only assign if confidence >= 0.75 based on:
+- Subject identity clarity (is subject clearly identified?)
+- Subject alignment strength (how well does it match space intent?)
+- Content relevance (does episode content serve space purpose?)
+
+CRITICAL RULE: PRIMARY SUBJECT MATCHING
+The episode's PRIMARY SUBJECT must match the space's target subject.
+- If space is about Person A, episodes about Person B should NOT match (even if same topic)
+- If space is about a specific concept, meta-discussions about that concept should NOT match
+- If space is about actual behaviors/facts, process discussions about organizing those facts should NOT match
+
+EXAMPLES OF CORRECT FILTERING:
+
+Example 1 - Person Identity:
+Space: "Alex's work preferences"
+Episode A: "I prefer morning meetings and async updates" (speaker: Alex) → ASSIGN ✅ (primary subject: Alex's preferences)
+Episode B: "Jordan prefers afternoon meetings" (speaker: System) → DO NOT ASSIGN ❌ (primary subject: Jordan, not Alex)
+
+Example 2 - Meta vs Actual:
+Space: "Recipe collection"
+Episode A: "My lasagna recipe: 3 layers pasta, béchamel, meat sauce..." → ASSIGN ✅ (primary subject: actual recipe)
+Episode B: "We should organize recipes by cuisine type" → DO NOT ASSIGN ❌ (primary subject: organizing system, not recipe)
+
+Example 3 - Keyword Overlap Without Subject Match:
+Space: "Home renovation project"
+Episode A: "Installed new kitchen cabinets, chose oak wood" → ASSIGN ✅ (primary subject: home renovation)
+Episode B: "Friend asked advice about their kitchen renovation" → DO NOT ASSIGN ❌ (primary subject: friend's project, not this home)
+
+Example 4 - Scope Constraints:
+Space: "Personal identity and preferences (broadly useful across contexts, not app-specific)"
+Episode A: "I prefer async communication and morning work hours" → ASSIGN ✅ (cross-context preference, broadly applicable)
+Episode B: "Demonstrated knowledge of ProjectX technical stack" → DO NOT ASSIGN ❌ (work/project knowledge, not personal identity)
 
 RESPONSE FORMAT:
 Provide your response inside <output></output> tags with a valid JSON array:
@@ -952,49 +882,52 @@ Provide your response inside <output></output> tags with a valid JSON array:
 <output>
 [
   {
-    "statementId": "statement-uuid",
+    "episodeId": "episode-uuid",
     "addSpaceId": ["${newSpaceId}"],
-    "confidence": 0.85,
+    "confidence": 0.75,
+    "reasoning": "Brief explanation of intent match"
   }
 ]
 </output>
 
-IMPORTANT: If a statement doesn't fit the space well, use empty addSpaceId array: []
-Example of non-relevant statement: {"statementId": "stmt-123", "addSpaceId": [], "confidence": 0.0}`,
+IMPORTANT: If an episode doesn't align with the space's intent, use empty addSpaceId array: []
+Example: {"episodeId": "ep-123", "addSpaceId": [], "confidence": 0.0, "reasoning": "No intent alignment"}`,
       },
       {
         role: "user",
         content: `NEW SPACE TO POPULATE:
 Name: ${newSpace.name}
-Description: ${newSpace.description || "No description"}
-Current Statement Count: ${newSpace.currentStatementCount}
-${newSpace.summary ? `Current Summary: ${newSpace.summary}` : ""}
-${newSpace.themes && newSpace.themes.length > 0 ? `Existing Themes: ${newSpace.themes.join(", ")}` : ""}
+Intent/Purpose: ${newSpace.description || "No description"}
+Current Episodes: ${newSpace.currentEpisodeCount}
 
-STATEMENTS TO EVALUATE:
-${statementsDescription}
+EPISODES TO EVALUATE:
+${episodesDescription}
 
-Which statements are semantically relevant to "${newSpace.name}"? Focus on meaning and context.
-Only assign statements with confidence >= 0.85.`,
+ASSIGNMENT TASK:
+For each episode above, follow the step-by-step process to determine if it should be assigned to this space.
+
+Remember:
+1. Identify the PRIMARY SUBJECT of each episode (who/what is it about?)
+2. Check if that PRIMARY SUBJECT matches what this space is about
+3. If the episode is ABOUT something else (even if it mentions related keywords), do NOT assign
+4. If the episode is a META-discussion about the space's topic (not actual content), do NOT assign
+5. Only assign if the episode's primary subject aligns with the space's intent AND confidence >= 0.75
+
+Provide your analysis and assignments using the specified JSON format.`,
       },
     ];
   } else {
-    // Daily batch mode - consider all spaces
+    // Episode mode - consider all spaces
     const spacesDescription = enhancedSpaces
-      .filter((space) => space.currentStatementCount >= 5) // Only include spaces with 5+ statements for theme validation
       .map((space) => {
         const spaceInfo = [
           `- ${space.name} (${space.id})`,
-          `  Description: ${space.description || "No description"}`,
-          `  Current Statements: ${space.currentStatementCount}`,
+          `  Intent/Purpose: ${space.description || "No description"}`,
+          `  Current Episodes: ${space.currentEpisodeCount}`,
         ];
 
         if (space.summary) {
           spaceInfo.push(`  Summary: ${space.summary}`);
-        }
-
-        if (space.themes && space.themes.length > 0) {
-          spaceInfo.push(`  Themes: ${space.themes.join(", ")}`);
         }
 
         return spaceInfo.join("\n");
@@ -1004,15 +937,77 @@ Only assign statements with confidence >= 0.85.`,
     return [
       {
         role: "system",
-        content: `You are an expert at organizing information and assigning statements to relevant semantic spaces.
+        content: `You are an expert at organizing episodes into semantic spaces based on the space's intent and purpose.
 
-INSTRUCTIONS:
-1. Analyze each statement's semantic meaning and context
-2. Assign to the most appropriate space(s) - statements can belong to multiple spaces
-3. Only assign if confidence >= 0.85 for quality
-4. Consider relationships between subject, predicate, and object
-5. Only assign to spaces with established themes (5+ statements)
-6. If no spaces are relevant, use empty addSpaceId: []
+CORE PRINCIPLE: Match episodes based on WHAT THE EPISODE IS FUNDAMENTALLY ABOUT (its primary subject), not just keyword overlap.
+
+STEP-BY-STEP FILTERING PROCESS:
+
+Step 1: IDENTIFY PRIMARY SUBJECT
+Ask: "Who or what is this episode fundamentally about?"
+- Is it about a specific person? (by name, or "I"/"my" = speaker)
+- Is it about a system, tool, or organization?
+- Is it about a project, event, or activity?
+- Is it about a concept, topic, or idea?
+
+Step 2: HANDLE IMPLICIT SUBJECTS
+- "I prefer..." or "My..." → Subject is the SPEAKER (check episode source/metadata for identity)
+- "User discussed..." or "Person X said..." → Subject is that specific person
+- "We decided..." → Subject is the group/team/project being discussed
+- If unclear, identify from context clues in the episode content
+
+Step 3: CHECK SUBJECT ALIGNMENT WITH EACH SPACE
+For each available space, does the episode's PRIMARY SUBJECT match what that space is about?
+- Match the subject identity (right person/thing/concept?)
+- Match the subject relationship (is episode ABOUT the subject or just MENTIONING it?)
+- Match the intent purpose (does episode serve the space's purpose?)
+- An episode can match multiple spaces if its primary subject serves multiple intents
+
+Step 4: DISTINGUISH SUBJECT vs META
+Ask: "Is this episode ABOUT the subject itself, or ABOUT discussing/analyzing the subject?"
+- ABOUT subject: Episode contains actual content related to subject
+- META-discussion: Episode discusses how to handle/analyze/organize the subject
+- Only assign if episode is ABOUT the subject, not meta-discussion
+
+Step 5: VERIFY CONFIDENCE
+Only assign to a space if confidence >= 0.75 based on:
+- Subject identity clarity (is subject clearly identified?)
+- Subject alignment strength (how well does it match space intent?)
+- Content relevance (does episode content serve space purpose?)
+
+Step 6: MULTI-SPACE ASSIGNMENT
+- An episode can belong to multiple spaces if its primary subject serves multiple intents
+- Each space assignment should meet the >= 0.75 confidence threshold independently
+- If no spaces match, use empty addSpaceId: []
+
+CRITICAL RULE: PRIMARY SUBJECT MATCHING
+The episode's PRIMARY SUBJECT must match the space's target subject.
+- If space is about Person A, episodes about Person B should NOT match (even if same topic)
+- If space is about a specific concept, meta-discussions about that concept should NOT match
+- If space is about actual behaviors/facts, process discussions about organizing those facts should NOT match
+
+EXAMPLES OF CORRECT FILTERING:
+
+Example 1 - Person Identity:
+Space: "Alex's work preferences"
+Episode A: "I prefer morning meetings and async updates" (speaker: Alex) → ASSIGN ✅ (primary subject: Alex's preferences)
+Episode B: "Jordan prefers afternoon meetings" (speaker: System) → DO NOT ASSIGN ❌ (primary subject: Jordan, not Alex)
+
+Example 2 - Meta vs Actual:
+Space: "Recipe collection"
+Episode A: "My lasagna recipe: 3 layers pasta, béchamel, meat sauce..." → ASSIGN ✅ (primary subject: actual recipe)
+Episode B: "We should organize recipes by cuisine type" → DO NOT ASSIGN ❌ (primary subject: organizing system, not recipe)
+
+Example 3 - Keyword Overlap Without Subject Match:
+Space: "Home renovation project"
+Episode A: "Installed new kitchen cabinets, chose oak wood" → ASSIGN ✅ (primary subject: home renovation)
+Episode B: "Friend asked advice about their kitchen renovation" → DO NOT ASSIGN ❌ (primary subject: friend's project, not this home)
+
+Example 4 - Scope Constraints:
+Space: "Personal identity and preferences (broadly useful across contexts, not app-specific)"
+Episode A: "I prefer async communication and morning work hours" → ASSIGN ✅ (cross-context preference, broadly applicable)
+Episode B: "I format task titles as {verb}: {title} in TaskApp" → DO NOT ASSIGN ❌ (app-specific behavior, fails "not app-specific" constraint)
+Episode C: "Demonstrated knowledge of ProjectX technical stack" → DO NOT ASSIGN ❌ (work/project knowledge, not personal identity)
 
 RESPONSE FORMAT:
 Provide your response inside <output></output> tags with a valid JSON array:
@@ -1020,26 +1015,37 @@ Provide your response inside <output></output> tags with a valid JSON array:
 <output>
 [
   {
-    "statementId": "statement-uuid",
+    "episodeId": "episode-uuid",
     "addSpaceId": ["space-uuid1", "space-uuid2"],
-    "confidence": 0.85
+    "confidence": 0.75,
+    "reasoning": "Brief explanation of intent match"
   }
 ]
 </output>
 
-IMPORTANT: If no spaces are relevant, use empty addSpaceId array: []
-Example of non-relevant statement: {"statementId": "stmt-123", "addSpaceId": [], "confidence": 0.0}`,
+IMPORTANT: If no spaces' intents align with an episode, use empty addSpaceId array: []
+Example: {"episodeId": "ep-123", "addSpaceId": [], "confidence": 0.0, "reasoning": "No matching space intent"}`,
       },
       {
         role: "user",
-        content: `AVAILABLE SPACES (with established themes - 5+ statements):
+        content: `AVAILABLE SPACES (with their intents/purposes):
 ${spacesDescription}
 
-STATEMENTS TO ORGANIZE:
-${statementsDescription}
+EPISODES TO ORGANIZE:
+${episodesDescription}
 
-Assign each statement to the most semantically relevant space(s). Consider meaning over keywords.
-Only assign to spaces with established themes (5+ statements) and with confidence >= 0.85.`,
+ASSIGNMENT TASK:
+For each episode above, follow the step-by-step process to determine which space(s) it should be assigned to.
+
+Remember:
+1. Identify the PRIMARY SUBJECT of each episode (who/what is it about?)
+2. Check if that PRIMARY SUBJECT matches what each space is about
+3. If the episode is ABOUT something else (even if it mentions related keywords), do NOT assign to that space
+4. If the episode is a META-discussion about a space's topic (not actual content), do NOT assign to that space
+5. An episode can be assigned to multiple spaces if its primary subject serves multiple intents
+6. Only assign if the episode's primary subject aligns with the space's intent AND confidence >= 0.75 for that space
+
+Provide your analysis and assignments using the specified JSON format.`,
       },
     ];
   }
@@ -1047,7 +1053,7 @@ Only assign to spaces with established themes (5+ statements) and with confidenc
 
 function parseLLMResponseWithTags(
   response: string,
-  statements: StatementData[],
+  episodes: EpisodeData[],
   spaces: Space[],
 ): AssignmentResult[] {
   try {
@@ -1057,7 +1063,7 @@ function parseLLMResponseWithTags(
       logger.warn(
         "No <output> tags found in LLM response, falling back to full response parsing",
       );
-      return parseLLMResponse(response, statements, spaces);
+      return parseLLMResponse(response, episodes, spaces);
     }
 
     const jsonContent = outputMatch[1].trim();
@@ -1071,14 +1077,14 @@ function parseLLMResponseWithTags(
     }
 
     const validSpaceIds = new Set(spaces.map((s) => s.id));
-    const validStatementIds = new Set(statements.map((s) => s.uuid));
+    const validEpisodeIds = new Set(episodes.map((e) => e.uuid));
 
     return parsed
       .filter((assignment: any) => {
         // Validate assignment structure
         if (
-          !assignment.statementId ||
-          !validStatementIds.has(assignment.statementId)
+          !assignment.episodeId ||
+          !validEpisodeIds.has(assignment.episodeId)
         ) {
           return false;
         }
@@ -1096,9 +1102,10 @@ function parseLLMResponseWithTags(
         return true;
       })
       .map((assignment: any) => ({
-        statementId: assignment.statementId,
+        episodeId: assignment.episodeId,
         spaceIds: assignment.addSpaceId,
-        confidence: assignment.confidence || 0.8,
+        confidence: assignment.confidence || 0.75,
+        reasoning: assignment.reasoning,
       }));
   } catch (error) {
     logger.error(
@@ -1107,13 +1114,13 @@ function parseLLMResponseWithTags(
     );
     logger.debug("Raw LLM response:", { response } as Record<string, unknown>);
     // Fallback to regular parsing
-    return parseLLMResponse(response, statements, spaces);
+    return parseLLMResponse(response, episodes, spaces);
   }
 }
 
 function parseLLMResponse(
   response: string,
-  statements: StatementData[],
+  episodes: EpisodeData[],
   spaces: Space[],
 ): AssignmentResult[] {
   try {
@@ -1131,14 +1138,14 @@ function parseLLMResponse(
     }
 
     const validSpaceIds = new Set(spaces.map((s) => s.id));
-    const validStatementIds = new Set(statements.map((s) => s.uuid));
+    const validEpisodeIds = new Set(episodes.map((e) => e.uuid));
 
     return parsed.assignments
       .filter((assignment: any) => {
         // Validate assignment structure
         if (
-          !assignment.statementId ||
-          !validStatementIds.has(assignment.statementId)
+          !assignment.episodeId ||
+          !validEpisodeIds.has(assignment.episodeId)
         ) {
           return false;
         }
@@ -1155,9 +1162,10 @@ function parseLLMResponse(
         return true;
       })
       .map((assignment: any) => ({
-        statementId: assignment.statementId,
+        episodeId: assignment.episodeId,
         spaceIds: assignment.spaceIds,
-        confidence: assignment.confidence || 0.8,
+        confidence: assignment.confidence || 0.75,
+        reasoning: assignment.reasoning,
       }));
   } catch (error) {
     logger.error(

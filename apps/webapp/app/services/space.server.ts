@@ -9,6 +9,7 @@ import { type Space } from "@prisma/client";
 
 import { triggerSpaceAssignment } from "~/trigger/spaces/space-assignment";
 import {
+  assignEpisodesToSpace,
   assignStatementsToSpace,
   createSpace,
   deleteSpace,
@@ -182,13 +183,6 @@ export class SpaceService {
       }
     }
 
-    if (
-      updates.description !== undefined &&
-      updates.description.length > 1000
-    ) {
-      throw new Error("Space description too long (max 1000 characters)");
-    }
-
     const space = await prisma.space.update({
       where: {
         id: spaceId,
@@ -230,6 +224,58 @@ export class SpaceService {
     logger.info(`Deleted space ${spaceId} successfully`);
 
     return space;
+  }
+
+  /**
+   * Reset a space by clearing all episode assignments, summary, and metadata
+   */
+  async resetSpace(spaceId: string, userId: string): Promise<Space> {
+    logger.info(`Resetting space ${spaceId} for user ${userId}`);
+
+    // Get the space first to verify it exists and get its details
+    const space = await prisma.space.findUnique({
+      where: {
+        id: spaceId,
+      },
+    });
+
+    if (!space) {
+      throw new Error("Space not found");
+    }
+
+    if (space.name === "Profile") {
+      throw new Error("Cannot reset Profile space");
+    }
+
+    // Delete all relationships in Neo4j (episodes, statements, etc.)
+    await deleteSpace(spaceId, userId);
+
+    // Recreate the space in Neo4j (clean slate)
+    await createSpace(
+      space.id,
+      space.name.trim(),
+      space.description?.trim(),
+      userId,
+    );
+
+    // Reset all summary and metadata fields in PostgreSQL
+    const resetSpace = await prisma.space.update({
+      where: {
+        id: spaceId,
+      },
+      data: {
+        summary: null,
+        themes: [],
+        contextCount: null,
+        status: "pending",
+        summaryGeneratedAt: null,
+        lastPatternTrigger: null,
+      },
+    });
+
+    logger.info(`Reset space ${spaceId} successfully`);
+
+    return resetSpace;
   }
 
   /**
@@ -310,10 +356,58 @@ export class SpaceService {
 
   /**
    * Get all statements in a space
+   * @deprecated Use getSpaceEpisodes instead - spaces now work with episodes
    */
   async getSpaceStatements(spaceId: string, userId: string) {
     logger.info(`Fetching statements for space ${spaceId} for user ${userId}`);
     return await getSpaceStatements(spaceId, userId);
+  }
+
+  /**
+   * Get all episodes in a space
+   */
+  async getSpaceEpisodes(spaceId: string, userId: string) {
+    logger.info(`Fetching episodes for space ${spaceId} for user ${userId}`);
+    const { getSpaceEpisodes } = await import("./graphModels/space");
+    return await getSpaceEpisodes(spaceId, userId);
+  }
+
+  /**
+   * Assign episodes to a space
+   */
+  async assignEpisodesToSpace(
+    episodeIds: string[],
+    spaceId: string,
+    userId: string,
+  ) {
+    logger.info(
+      `Assigning ${episodeIds.length} episodes to space ${spaceId} for user ${userId}`,
+    );
+
+    await assignEpisodesToSpace(episodeIds,spaceId, userId);
+
+    logger.info(
+      `Successfully assigned ${episodeIds.length} episodes to space ${spaceId}`,
+    );
+  }
+
+  /**
+   * Remove episodes from a space
+   */
+  async removeEpisodesFromSpace(
+    episodeIds: string[],
+    spaceId: string,
+    userId: string,
+  ) {
+    logger.info(
+      `Removing ${episodeIds.length} episodes from space ${spaceId} for user ${userId}`,
+    );
+
+    await this.removeEpisodesFromSpace(episodeIds, spaceId, userId);
+
+    logger.info(
+      `Successfully removed ${episodeIds.length} episodes from space ${spaceId}`,
+    );
   }
 
   /**
