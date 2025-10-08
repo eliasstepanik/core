@@ -202,6 +202,45 @@ export class IntegrationLoader {
   }
 
   /**
+   * Get tools from a specific integration
+   */
+  static async getIntegrationTools(sessionId: string, integrationSlug: string) {
+    const integrationTransports =
+      TransportManager.getSessionIntegrationTransports(sessionId);
+
+    if (integrationTransports.length === 0) {
+      throw new Error(
+        `No integration transports loaded for session ${sessionId}. Make sure integrations are connected and session is initialized properly.`,
+      );
+    }
+
+    const integrationTransport = integrationTransports.find(
+      (t) => t.slug === integrationSlug,
+    );
+
+    if (!integrationTransport) {
+      const availableSlugs = integrationTransports
+        .map((t) => t.slug)
+        .join(", ");
+      throw new Error(
+        `Integration '${integrationSlug}' not found or not connected. Available integrations: ${availableSlugs}`,
+      );
+    }
+
+    const result = await integrationTransport.client.listTools();
+
+    if (result.tools && Array.isArray(result.tools)) {
+      return result.tools.map((tool: any) => ({
+        name: tool.name,
+        description: tool.description || tool.name,
+        inputSchema: tool.inputSchema,
+      }));
+    }
+
+    return [];
+  }
+
+  /**
    * Call a tool on a specific integration
    */
   static async callIntegrationTool(

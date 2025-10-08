@@ -40,19 +40,12 @@ async function createMcpServer(
     },
   );
 
-  // Dynamic tool listing that includes integration tools
+  // Dynamic tool listing - only expose memory tools and meta-tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    // Get integration tools
-    let integrationTools: any[] = [];
-    try {
-      integrationTools =
-        await IntegrationLoader.getAllIntegrationTools(sessionId);
-    } catch (error) {
-      logger.error(`Error loading integration tools: ${error}`);
-    }
-
+    // Only return memory tools (which now includes integration meta-tools)
+    // Integration-specific tools are discovered via get_integration_actions
     return {
-      tools: [...memoryTools, ...integrationTools],
+      tools: memoryTools,
     };
   });
 
@@ -60,9 +53,21 @@ async function createMcpServer(
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Handle memory tools
-    if (name.startsWith("memory_")) {
-      return await callMemoryTool(name, args, userId, source);
+    // Handle memory tools and integration meta-tools
+    if (
+      name.startsWith("memory_") ||
+      name === "get_integrations" ||
+      name === "get_integration_actions" ||
+      name === "execute_integration_action"
+    ) {
+      // Get workspace for integration tools
+      const workspace = await getWorkspaceByUser(userId);
+      return await callMemoryTool(
+        name,
+        { ...args, sessionId, workspaceId: workspace?.id },
+        userId,
+        source,
+      );
     }
 
     // Handle integration tools (prefixed with integration slug)

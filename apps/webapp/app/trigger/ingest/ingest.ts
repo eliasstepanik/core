@@ -9,6 +9,7 @@ import { triggerSpaceAssignment } from "../spaces/space-assignment";
 import { prisma } from "../utils/prisma";
 import { EpisodeType } from "@core/types";
 import { deductCredits, hasCredits } from "../utils/utils";
+import { assignEpisodesToSpace } from "~/services/graphModels/space";
 
 export const IngestBodyRequest = z.object({
   episodeBody: z.string(),
@@ -148,23 +149,46 @@ export const ingestTask = task({
         );
       }
 
-      // Trigger space assignment after successful ingestion
+      // Handle space assignment after successful ingestion
       try {
-        logger.info(`Triggering space assignment after successful ingestion`, {
-          userId: payload.userId,
-          workspaceId: payload.workspaceId,
-          episodeId: episodeDetails?.episodeUuid,
-        });
-        if (
-          episodeDetails.episodeUuid &&
-          currentStatus === IngestionStatus.COMPLETED
-        ) {
-          await triggerSpaceAssignment({
+        // If spaceId was explicitly provided, immediately assign the episode to that space
+        if (episodeBody.spaceId && episodeDetails.episodeUuid) {
+          logger.info(`Assigning episode to explicitly provided space`, {
             userId: payload.userId,
-            workspaceId: payload.workspaceId,
-            mode: "episode",
-            episodeIds: episodeUuids,
+            episodeId: episodeDetails.episodeUuid,
+            spaceId: episodeBody.spaceId,
           });
+
+          await assignEpisodesToSpace(
+            [episodeDetails.episodeUuid],
+            episodeBody.spaceId,
+            payload.userId,
+          );
+
+          logger.info(
+            `Skipping LLM space assignment - episode explicitly assigned to space ${episodeBody.spaceId}`,
+          );
+        } else {
+          // Only trigger automatic LLM space assignment if no explicit spaceId was provided
+          logger.info(
+            `Triggering LLM space assignment after successful ingestion`,
+            {
+              userId: payload.userId,
+              workspaceId: payload.workspaceId,
+              episodeId: episodeDetails?.episodeUuid,
+            },
+          );
+          if (
+            episodeDetails.episodeUuid &&
+            currentStatus === IngestionStatus.COMPLETED
+          ) {
+            await triggerSpaceAssignment({
+              userId: payload.userId,
+              workspaceId: payload.workspaceId,
+              mode: "episode",
+              episodeIds: episodeUuids,
+            });
+          }
         }
       } catch (assignmentError) {
         // Don't fail the ingestion if assignment fails
