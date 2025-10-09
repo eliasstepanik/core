@@ -1,5 +1,4 @@
-import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
+import ReactMarkdown, {type  Components } from "react-markdown";
 import { cn } from "~/lib/utils";
 
 const markdownComponents: Components = {

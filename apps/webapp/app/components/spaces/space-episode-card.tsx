@@ -5,6 +5,7 @@ import { cn } from "~/lib/utils";
 import { useNavigate } from "@remix-run/react";
 import Markdown from "react-markdown";
 import { StyledMarkdown } from "../common/styled-markdown";
+import { SpaceEpisodeActions } from "./space-episode-actions";
 
 export interface Episode {
   uuid: string;
@@ -20,9 +21,10 @@ export interface Episode {
 
 interface SpaceFactCardProps {
   episode: Episode;
+  spaceId: string;
 }
 
-export function SpaceEpisodeCard({ episode }: SpaceFactCardProps) {
+export function SpaceEpisodeCard({ episode, spaceId }: SpaceFactCardProps) {
   const navigate = useNavigate();
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
@@ -62,6 +64,7 @@ export function SpaceEpisodeCard({ episode }: SpaceFactCardProps) {
                   <Calendar className="h-3 w-3" />
                   {formatDate(episode.validAt)}
                 </Badge>
+                <SpaceEpisodeActions episodeId={episode.uuid} spaceId={spaceId} />
               </div>
             </div>
           </div>

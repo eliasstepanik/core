@@ -18,12 +18,14 @@ interface SpaceEpisodesListProps {
   loadMore: () => void;
   isLoading: boolean;
   height?: number;
+  spaceId: string;
 }
 
 function EpisodeItemRenderer(
   props: ListRowProps,
   episodes: Episode[],
   cache: CellMeasurerCache,
+  spaceId: string,
 ) {
   const { index, key, style, parent } = props;
   const episode = episodes[index];
@@ -37,7 +39,7 @@ function EpisodeItemRenderer(
       rowIndex={index}
     >
       <div key={key} style={style} className="pb-2">
-        <SpaceEpisodeCard episode={episode} />
+        <SpaceEpisodeCard episode={episode} spaceId={spaceId} />
       </div>
     </CellMeasurer>
   );
@@ -48,6 +50,7 @@ export function SpaceEpisodesList({
   hasMore,
   loadMore,
   isLoading,
+  spaceId,
 }: SpaceEpisodesListProps) {
   // Create a CellMeasurerCache instance using useRef to prevent recreation
   const cacheRef = useRef<CellMeasurerCache | null>(null);
@@ -91,7 +94,7 @@ export function SpaceEpisodesList({
   };
 
   const rowRenderer = (props: ListRowProps) => {
-    return EpisodeItemRenderer(props, episodes, cache);
+    return EpisodeItemRenderer(props, episodes, cache, spaceId);
   };
 
   const rowHeight = ({ index }: Index) => {

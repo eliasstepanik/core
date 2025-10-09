@@ -37,7 +37,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export default function Episodes() {
-  const { episodes } = useLoaderData<typeof loader>();
+  const { episodes, space } = useLoaderData<typeof loader>();
   const [selectedValidDate, setSelectedValidDate] = useState<
     string | undefined
   >();
@@ -98,6 +98,7 @@ export default function Episodes() {
               hasMore={false} // TODO: Implement real pagination
               loadMore={loadMore}
               isLoading={false}
+              spaceId={space.id}
             />
           )}
         </ClientOnly>

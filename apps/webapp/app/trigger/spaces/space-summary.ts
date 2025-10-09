@@ -198,7 +198,7 @@ async function generateSpaceSummary(
 
       if (
         episodeDifference < CONFIG.summaryEpisodeThreshold ||
-        lastSummaryEpisodeCount === 0
+        lastSummaryEpisodeCount !== 0
       ) {
         logger.info(
           `Skipping summary generation for space ${spaceId}: only ${episodeDifference} new episodes (threshold: ${CONFIG.summaryEpisodeThreshold})`,

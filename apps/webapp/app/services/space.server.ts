@@ -236,10 +236,6 @@ export class SpaceService {
       throw new Error("Space not found");
     }
 
-    if (space.name === "Profile") {
-      throw new Error("Cannot reset Profile space");
-    }
-
     // Delete all relationships in Neo4j (episodes, statements, etc.)
     await deleteSpace(spaceId, userId);
 
