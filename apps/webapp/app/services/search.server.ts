@@ -33,7 +33,7 @@ export class SearchService {
     options: SearchOptions = {},
     source?: string,
   ): Promise<{
-    episodes: string[];
+    episodes: {content: string; createdAt: Date; spaceIds: string[]}[];
     facts: {
       fact: string;
       validAt: Date;
@@ -108,7 +108,11 @@ export class SearchService {
     );
 
     return {
-      episodes: episodes.map((episode) => episode.originalContent),
+      episodes: episodes.map((episode) => ({
+        content: episode.originalContent,
+        createdAt: episode.createdAt,
+        spaceIds: episode.spaceIds || [],
+      })),
       facts: filteredResults.map((statement) => ({
         fact: statement.statement.fact,
         validAt: statement.statement.validAt,

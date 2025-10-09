@@ -139,6 +139,7 @@ export default function OnboardingQuestionComponent({
                   variant="ghost"
                   size="xl"
                   onClick={onPrevious}
+                  disabled={loading}
                   className="rounded-lg px-4 py-2"
                 >
                   Previous
@@ -151,7 +152,7 @@ export default function OnboardingQuestionComponent({
                 size="xl"
                 onClick={onNext}
                 isLoading={!!loading}
-                disabled={!isValid()}
+                disabled={!isValid() || loading}
                 className="rounded-lg px-4 py-2"
               >
                 {isLast ? "Complete Profile" : "Continue"}

@@ -33,14 +33,6 @@ export async function getUser(request: Request) {
   throw await logout(request);
 }
 
-export async function getUserRemainingCount(request: Request) {
-  const userId = await getUserId(request);
-  if (userId === undefined) return null;
-
-  const userUsage = await getUserLeftCredits(userId);
-  if (userUsage) return userUsage;
-}
-
 export async function requireUserId(request: Request, redirectTo?: string) {
   const userId = await getUserId(request);
   if (!userId) {
@@ -71,6 +63,7 @@ export async function requireUser(request: Request) {
       confirmedBasicDetails: user.confirmedBasicDetails,
       onboardingComplete: user.onboardingComplete,
       isImpersonating: !!impersonationId,
+      workspaceId: user.Workspace?.id,
     };
   }
 

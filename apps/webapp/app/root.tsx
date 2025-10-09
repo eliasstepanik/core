@@ -25,7 +25,7 @@ import {
   type ToastMessage,
 } from "./models/message.server";
 import { env } from "./env.server";
-import { getUser, getUserRemainingCount } from "./services/session.server";
+import { getUser } from "./services/session.server";
 import { usePostHog } from "./hooks/usePostHog";
 import {
   AppContainer,
@@ -40,6 +40,8 @@ import {
   useTheme,
 } from "remix-themes";
 import clsx from "clsx";
+import { getUsageSummary } from "./services/billing.server";
+import { Toaster } from "./components/ui/toaster";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 
@@ -50,12 +52,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const posthogProjectKey = env.POSTHOG_PROJECT_KEY;
   const user = await getUser(request);
-  const usage = await getUserRemainingCount(request);
+  const usageSummary = await getUsageSummary(user?.Workspace?.id as string);
 
   return typedjson(
     {
       user: user,
-      availableCredits: usage?.availableCredits ?? 0,
+      availableCredits: usageSummary?.credits.available ?? 0,
+      totalCredits: usageSummary?.credits.monthly ?? 0,
       toastMessage,
       theme: getTheme(),
       posthogProjectKey,
@@ -124,6 +127,7 @@ function App() {
         </head>
         <body className="bg-background-2 h-[100vh] h-full w-[100vw] overflow-hidden font-sans">
           <Outlet />
+          <Toaster />
           <ScrollRestoration />
 
           <Scripts />

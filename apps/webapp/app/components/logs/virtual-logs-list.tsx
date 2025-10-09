@@ -10,6 +10,7 @@ import {
 import { type LogItem } from "~/hooks/use-logs";
 import { ScrollManagedList } from "../virtualized-list";
 import { LogTextCollapse } from "./log-text-collapse";
+import { LoaderCircle } from "lucide-react";
 
 interface VirtualLogsListProps {
   logs: LogItem[];
@@ -139,7 +140,7 @@ export function VirtualLogsList({
 
       {isLoading && (
         <div className="text-muted-foreground p-4 text-center text-sm">
-          Loading more logs...
+          <LoaderCircle size={18} className="mr-1 animate-spin" />
         </div>
       )}
     </div>

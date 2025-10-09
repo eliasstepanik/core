@@ -67,6 +67,15 @@ export function NavUser({ user }: { user: ExtendedUser }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Button
+          variant="ghost"
+          onClick={() => {
+            navigate("/settings/billing");
+          }}
+        >
+          <div>{user.availableCredits} credits</div>
+        </Button>
       </SidebarMenuItem>
     </SidebarMenu>
   );

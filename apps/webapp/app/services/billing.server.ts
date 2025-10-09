@@ -160,6 +160,10 @@ export async function ensureBillingInitialized(workspaceId: string) {
  * Get workspace usage summary
  */
 export async function getUsageSummary(workspaceId: string) {
+  if (!workspaceId) {
+    return null;
+  }
+
   // Ensure billing records exist for existing accounts
   await ensureBillingInitialized(workspaceId);
 

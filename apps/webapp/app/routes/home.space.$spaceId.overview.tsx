@@ -148,7 +148,7 @@ export default function Overview() {
             variant="ghost"
             className="text-muted-foreground mb-1 -ml-2 gap-1"
           >
-            Summary
+            Context
             <ChevronDown
               size={14}
               className={`transition-transform duration-300 ${

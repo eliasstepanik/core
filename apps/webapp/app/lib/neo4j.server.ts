@@ -145,10 +145,8 @@ export const getClusteredGraphData = async (userId: string) => {
          rel.predicate as predicateLabel,
          e.uuid as episodeUuid,
          e.content as episodeContent,
+         e.spaceIds as spaceIds,
          s.uuid as statementUuid,
-         s.spaceIds as spaceIds,
-         s.fact as fact,
-         s.invalidAt as invalidAt,
          s.validAt as validAt,
          s.createdAt as createdAt`,
       { userId },
@@ -169,13 +167,8 @@ export const getClusteredGraphData = async (userId: string) => {
 
       const predicateLabel = record.get("predicateLabel");
       const episodeUuid = record.get("episodeUuid");
-      const episodeContent = record.get("episodeContent");
-      const statementUuid = record.get("statementUuid");
       const clusterIds = record.get("spaceIds");
       const clusterId = clusterIds ? clusterIds[0] : undefined;
-      const fact = record.get("fact");
-      const invalidAt = record.get("invalidAt");
-      const validAt = record.get("validAt");
       const createdAt = record.get("createdAt");
 
       // Create unique edge identifier to avoid duplicates

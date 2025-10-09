@@ -9,7 +9,7 @@ import {
 } from "~/components/ui/popover";
 import { Badge } from "~/components/ui/badge";
 
-interface SpaceFactsFiltersProps {
+interface SpaceEpisodesFiltersProps {
   selectedValidDate?: string;
   selectedSpaceFilter?: string;
   onValidDateChange: (date?: string) => void;
@@ -22,34 +22,24 @@ const validDateOptions = [
   { value: "last_6_months", label: "Last 6 Months" },
 ];
 
-const spaceFilterOptions = [
-  { value: "active", label: "Active Facts" },
-  { value: "archived", label: "Archived Facts" },
-  { value: "all", label: "All Facts" },
-];
+type FilterStep = "main" | "validDate";
 
-type FilterStep = "main" | "validDate" | "spaceFilter";
-
-export function SpaceFactsFilters({
+export function SpaceEpisodesFilters({
   selectedValidDate,
   selectedSpaceFilter,
   onValidDateChange,
-  onSpaceFilterChange,
-}: SpaceFactsFiltersProps) {
+}: SpaceEpisodesFiltersProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [step, setStep] = useState<FilterStep>("main");
 
   const selectedValidDateLabel = validDateOptions.find(
     (d) => d.value === selectedValidDate,
   )?.label;
-  const selectedSpaceFilterLabel = spaceFilterOptions.find(
-    (f) => f.value === selectedSpaceFilter,
-  )?.label;
 
   const hasFilters = selectedValidDate || selectedSpaceFilter;
 
   return (
-    <div className="mb-2 flex w-full items-center justify-start gap-2 px-5">
+    <>
       <Popover
         open={popoverOpen}
         onOpenChange={(open) => {
@@ -78,13 +68,6 @@ export function SpaceFactsFilters({
                   onClick={() => setStep("validDate")}
                 >
                   Valid Date
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  onClick={() => setStep("spaceFilter")}
-                >
-                  Status
                 </Button>
               </div>
             )}
@@ -122,40 +105,6 @@ export function SpaceFactsFilters({
                 ))}
               </div>
             )}
-
-            {step === "spaceFilter" && (
-              <div className="flex flex-col gap-1 p-2">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    onSpaceFilterChange(undefined);
-                    setPopoverOpen(false);
-                    setStep("main");
-                  }}
-                >
-                  All Facts
-                </Button>
-                {spaceFilterOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      onSpaceFilterChange(
-                        option.value === selectedSpaceFilter
-                          ? undefined
-                          : option.value,
-                      );
-                      setPopoverOpen(false);
-                      setStep("main");
-                    }}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            )}
           </PopoverContent>
         </PopoverPortal>
       </Popover>
@@ -172,17 +121,8 @@ export function SpaceFactsFilters({
               />
             </Badge>
           )}
-          {selectedSpaceFilter && (
-            <Badge variant="secondary" className="h-7 gap-1 rounded px-2">
-              {selectedSpaceFilterLabel}
-              <X
-                className="hover:text-destructive h-3.5 w-3.5 cursor-pointer"
-                onClick={() => onSpaceFilterChange(undefined)}
-              />
-            </Badge>
-          )}
         </div>
       )}
-    </div>
+    </>
   );
 }

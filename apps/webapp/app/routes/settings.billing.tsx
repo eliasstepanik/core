@@ -262,6 +262,7 @@ export default function BillingSettings() {
             <Progress
               segments={[{ value: 100 - usageSummary.credits.percentageUsed }]}
               className="mb-2"
+              color="#c15e50"
             />
             <p className="text-muted-foreground text-xs">
               {usageSummary.credits.percentageUsed}% used this period
@@ -452,7 +453,7 @@ export default function BillingSettings() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 p-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {/* Free Plan */}
             <Card className="p-6">
               <div className="mb-4">
@@ -467,10 +468,10 @@ export default function BillingSettings() {
               </div>
               <ul className="mb-6 space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  <span>Memory facts: 3k/mo</span>
+                  <span>Credits: 3k/mo</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span>NO USAGE BASED</span>
+                  <span>No usage based</span>
                 </li>
               </ul>
               <Button
@@ -504,14 +505,15 @@ export default function BillingSettings() {
               </div>
               <ul className="mb-6 space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  <span>Memory facts: 15k/mo</span>
+                  <span>Credits: 15k/mo</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span>$0.299 /1K ADDITIONAL FACTS</span>
+                  <span>$0.299 /1K Additional Credits</span>
                 </li>
               </ul>
               <Button
                 className="w-full"
+                variant="secondary"
                 disabled={
                   usageSummary.plan.type === "PRO" ||
                   fetcher.state === "submitting"
@@ -540,14 +542,15 @@ export default function BillingSettings() {
               </div>
               <ul className="mb-6 space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  <span>Memory facts: 100k/mo</span>
+                  <span>Credits: 100k/mo</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span>$0.249 /1K ADDITIONAL FACTS</span>
+                  <span>$0.249 /1K Additional Credits</span>
                 </li>
               </ul>
               <Button
                 className="w-full"
+                variant="secondary"
                 disabled={
                   usageSummary.plan.type === "MAX" ||
                   fetcher.state === "submitting"

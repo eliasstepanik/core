@@ -153,6 +153,7 @@ export default function Onboarding() {
       setCurrentQuestion(currentQuestion + 1);
     } else {
       setLoading(true);
+
       // Submit all answers
       submitAnswers();
     }

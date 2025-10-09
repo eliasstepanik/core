@@ -22,5 +22,5 @@ export function getStatusValue(status: string) {
     return formatString("In Queue");
   }
 
-  return status;
+  return formatString(status);
 }

@@ -17,8 +17,8 @@ interface SpaceCardProps {
     createdAt: string;
     updatedAt: string;
     autoMode: boolean;
-    statementCount: number | null;
     summary: string | null;
+    contextCount?: number | null;
     themes?: string[];
   };
 }
@@ -46,13 +46,17 @@ export function SpaceCard({ space }: SpaceCardProps) {
           </div>
           <CardTitle className="text-base">{space.name}</CardTitle>
           <CardDescription className="line-clamp-2 text-xs">
-            {space.description || space.summary || "Knowledge space"}
+            <p
+              dangerouslySetInnerHTML={{
+                __html: space.description || space.summary || "Knowledge space",
+              }}
+            ></p>
           </CardDescription>
           <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
-            {space.statementCount && space.statementCount > 0 && (
+            {space.contextCount && space.contextCount > 0 && (
               <div>
-                {space.statementCount} fact
-                {space.statementCount !== 1 ? "s" : ""}
+                {space.contextCount} episode
+                {space.contextCount !== 1 ? "s" : ""}
               </div>
             )}
           </div>

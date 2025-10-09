@@ -3,19 +3,18 @@ import {
   type SpaceNode,
   type CreateSpaceParams,
   type UpdateSpaceParams,
-  type SpaceAssignmentResult,
 } from "@core/types";
 import { type Space } from "@prisma/client";
 
 import { triggerSpaceAssignment } from "~/trigger/spaces/space-assignment";
 import {
-  assignStatementsToSpace,
+  assignEpisodesToSpace,
   createSpace,
   deleteSpace,
   getSpace,
-  getSpaceStatements,
-  initializeStatementSpaceIds,
-  removeStatementsFromSpace,
+  getSpaceEpisodeCount,
+  getSpaceEpisodes,
+  removeEpisodesFromSpace,
   updateSpace,
 } from "./graphModels/space";
 import { prisma } from "~/trigger/utils/prisma";
@@ -182,13 +181,6 @@ export class SpaceService {
       }
     }
 
-    if (
-      updates.description !== undefined &&
-      updates.description.length > 1000
-    ) {
-      throw new Error("Space description too long (max 1000 characters)");
-    }
-
     const space = await prisma.space.update({
       where: {
         id: spaceId,
@@ -233,87 +225,101 @@ export class SpaceService {
   }
 
   /**
-   * Assign statements to a space
+   * Reset a space by clearing all episode assignments, summary, and metadata
    */
-  async assignStatementsToSpace(
-    statementIds: string[],
-    spaceId: string,
-    userId: string,
-  ): Promise<SpaceAssignmentResult> {
-    logger.info(
-      `Assigning ${statementIds.length} statements to space ${spaceId} for user ${userId}`,
-    );
+  async resetSpace(spaceId: string, userId: string): Promise<Space> {
+    logger.info(`Resetting space ${spaceId} for user ${userId}`);
 
-    // Validate input
-    if (statementIds.length === 0) {
-      throw new Error("No statement IDs provided");
+    // Get the space first to verify it exists and get its details
+    const space = await prisma.space.findUnique({
+      where: {
+        id: spaceId,
+      },
+    });
+
+    if (!space) {
+      throw new Error("Space not found");
     }
 
-    if (statementIds.length > 1000) {
-      throw new Error("Too many statements (max 1000 per operation)");
+    if (space.name === "Profile") {
+      throw new Error("Cannot reset Profile space");
     }
 
-    const result = await assignStatementsToSpace(statementIds, spaceId, userId);
+    // Delete all relationships in Neo4j (episodes, statements, etc.)
+    await deleteSpace(spaceId, userId);
 
-    if (result.success) {
-      logger.info(
-        `Successfully assigned ${result.statementsUpdated} statements to space ${spaceId}`,
-      );
-    } else {
-      logger.warn(
-        `Failed to assign statements to space ${spaceId}: ${result.error}`,
-      );
-    }
-
-    return result;
-  }
-
-  /**
-   * Remove statements from a space
-   */
-  async removeStatementsFromSpace(
-    statementIds: string[],
-    spaceId: string,
-    userId: string,
-  ): Promise<SpaceAssignmentResult> {
-    logger.info(
-      `Removing ${statementIds.length} statements from space ${spaceId} for user ${userId}`,
-    );
-
-    // Validate input
-    if (statementIds.length === 0) {
-      throw new Error("No statement IDs provided");
-    }
-
-    if (statementIds.length > 1000) {
-      throw new Error("Too many statements (max 1000 per operation)");
-    }
-
-    const result = await removeStatementsFromSpace(
-      statementIds,
-      spaceId,
+    // Recreate the space in Neo4j (clean slate)
+    await createSpace(
+      space.id,
+      space.name.trim(),
+      space.description?.trim(),
       userId,
     );
 
-    if (result.success) {
-      logger.info(
-        `Successfully removed ${result.statementsUpdated} statements from space ${spaceId}`,
-      );
-    } else {
-      logger.warn(
-        `Failed to remove statements from space ${spaceId}: ${result.error}`,
-      );
-    }
+    // Reset all summary and metadata fields in PostgreSQL
+    const resetSpace = await prisma.space.update({
+      where: {
+        id: spaceId,
+      },
+      data: {
+        summary: null,
+        themes: [],
+        contextCount: null,
+        status: "pending",
+        summaryGeneratedAt: null,
+        lastPatternTrigger: null,
+      },
+    });
 
-    return result;
+    logger.info(`Reset space ${spaceId} successfully`);
+
+    return resetSpace;
   }
 
   /**
-   * Get all statements in a space
+   * Get all episodes in a space
    */
-  async getSpaceStatements(spaceId: string, userId: string) {
-    logger.info(`Fetching statements for space ${spaceId} for user ${userId}`);
-    return await getSpaceStatements(spaceId, userId);
+  async getSpaceEpisodes(spaceId: string, userId: string) {
+    logger.info(`Fetching episodes for space ${spaceId} for user ${userId}`);
+    return await getSpaceEpisodes(spaceId, userId);
+  }
+
+  /**
+   * Assign episodes to a space
+   */
+  async assignEpisodesToSpace(
+    episodeIds: string[],
+    spaceId: string,
+    userId: string,
+  ) {
+    logger.info(
+      `Assigning ${episodeIds.length} episodes to space ${spaceId} for user ${userId}`,
+    );
+
+    await assignEpisodesToSpace(episodeIds, spaceId, userId);
+
+    logger.info(
+      `Successfully assigned ${episodeIds.length} episodes to space ${spaceId}`,
+    );
+  }
+
+  /**
+   * Remove episodes from a space
+   */
+  async removeEpisodesFromSpace(
+    episodeIds: string[],
+    spaceId: string,
+    userId: string,
+  ) {
+    logger.info(
+      `Removing ${episodeIds.length} episodes from space ${spaceId} for user ${userId}`,
+    );
+
+    await removeEpisodesFromSpace(episodeIds, spaceId, userId);
+
+    logger.info(
+      `Successfully removed ${episodeIds.length} episodes from space ${spaceId}`,
+    );
   }
 
   /**
@@ -339,90 +345,10 @@ export class SpaceService {
   }
 
   /**
-   * Get spaces that contain specific statements
-   */
-  async getSpacesForStatements(
-    statementIds: string[],
-    userId: string,
-  ): Promise<{ statementId: string; spaces: Space[] }[]> {
-    const userSpaces = await this.getUserSpaces(userId);
-    const result: { statementId: string; spaces: Space[] }[] = [];
-
-    for (const statementId of statementIds) {
-      const spacesContainingStatement = [];
-
-      for (const space of userSpaces) {
-        const statements = await this.getSpaceStatements(space.id, userId);
-        if (statements.some((stmt) => stmt.uuid === statementId)) {
-          spacesContainingStatement.push(space);
-        }
-      }
-
-      result.push({
-        statementId,
-        spaces: spacesContainingStatement,
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * Initialize spaceIds for existing statements (migration utility)
-   */
-  async initializeSpaceIds(userId?: string): Promise<number> {
-    logger.info(
-      `Initializing spaceIds for ${userId ? `user ${userId}` : "all users"}`,
-    );
-
-    const updatedCount = await initializeStatementSpaceIds(userId);
-
-    logger.info(`Initialized spaceIds for ${updatedCount} statements`);
-    return updatedCount;
-  }
-
-  /**
    * Validate space access
    */
   async validateSpaceAccess(spaceId: string, userId: string): Promise<boolean> {
     const space = await this.getSpace(spaceId, userId);
     return space !== null && space.isActive;
-  }
-
-  /**
-   * Bulk assign statements to multiple spaces
-   */
-  async bulkAssignStatements(
-    statementIds: string[],
-    spaceIds: string[],
-    userId: string,
-  ): Promise<{ spaceId: string; result: SpaceAssignmentResult }[]> {
-    logger.info(
-      `Bulk assigning ${statementIds.length} statements to ${spaceIds.length} spaces for user ${userId}`,
-    );
-
-    const results: { spaceId: string; result: SpaceAssignmentResult }[] = [];
-
-    for (const spaceId of spaceIds) {
-      try {
-        const result = await this.assignStatementsToSpace(
-          statementIds,
-          spaceId,
-          userId,
-        );
-        results.push({ spaceId, result });
-      } catch (error) {
-        results.push({
-          spaceId,
-          result: {
-            success: false,
-            statementsUpdated: 0,
-            error: error instanceof Error ? error.message : "Unknown error",
-          },
-        });
-      }
-    }
-
-    return results;
   }
 }

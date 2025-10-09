@@ -181,7 +181,7 @@ export const ingestDocumentTask = task({
             documentUuid: document.uuid,
           },
           source: documentBody.source,
-          spaceId: documentBody.spaceId,
+          spaceIds: documentBody.spaceIds,
           sessionId: documentBody.sessionId,
           type: EpisodeTypeEnum.DOCUMENT,
         };

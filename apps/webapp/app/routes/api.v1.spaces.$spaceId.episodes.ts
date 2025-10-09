@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { SpaceService } from "~/services/space.server";
 import { json } from "@remix-run/node";
+import { getSpaceEpisodeCount } from "~/services/graphModels/space";
 
 const spaceService = new SpaceService();
 
@@ -29,15 +30,17 @@ const { loader } = createActionApiRoute(
       return json({ error: "Space not found" }, { status: 404 });
     }
 
-    // Get statements in the space
-    const statements = await spaceService.getSpaceStatements(spaceId, userId);
+    // Get episodes in the space
+    const episodes = await spaceService.getSpaceEpisodes(spaceId, userId);
+    const episodeCount = await getSpaceEpisodeCount(spaceId, userId);
 
-    return json({ 
-      statements,
+    return json({
+      episodes,
       space: {
         uuid: space.uuid,
         name: space.name,
-        statementCount: statements.length
+        description: space.description,
+        episodeCount,
       }
     });
   }

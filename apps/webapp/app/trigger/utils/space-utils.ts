@@ -31,7 +31,7 @@ export const updateSpace = async (summaryData: {
   spaceId: string;
   summary: string;
   themes: string[];
-  statementCount: number;
+  contextCount: number;
 }) => {
   return await prisma.space.update({
     where: {
@@ -40,7 +40,8 @@ export const updateSpace = async (summaryData: {
     data: {
       summary: summaryData.summary,
       themes: summaryData.themes,
-      statementCount: summaryData.statementCount,
+      contextCount: summaryData.contextCount,
+      summaryGeneratedAt: new Date().toISOString()
     },
   });
 };

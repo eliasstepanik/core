@@ -113,10 +113,6 @@ model ConversationHistory {
 model IngestionQueue {
   id String @id @default(cuid())
 
-  // Relations
-  space   Space?  @relation(fields: [spaceId], references: [id])
-  spaceId String?
-
   // Queue metadata
   data     Json // The actual data to be processed
   output   Json? // The processed output data
@@ -472,20 +468,21 @@ model RecallLog {
 }
 
 model Space {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  autoMode       Boolean  @default(false)
-  summary        String?
-  themes         String[]
-  statementCount Int?
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  autoMode     Boolean  @default(false)
+  summary      String?
+  themes       String[]
+  contextCount Int? // Count of context items in this space (episodes, statements, etc.)
 
   status String?
 
   icon String?
 
-  lastPatternTrigger          DateTime?
-  statementCountAtLastTrigger Int?
+  lastPatternTrigger        DateTime?
+  summaryGeneratedAt        DateTime?
+  contextCountAtLastTrigger Int? // Context count when pattern was last triggered
 
   // Relations
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
@@ -493,7 +490,6 @@ model Space {
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  IngestionQueue IngestionQueue[]
   SpacePattern   SpacePattern[]
 }
 

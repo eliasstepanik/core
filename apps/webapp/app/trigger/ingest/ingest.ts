@@ -9,13 +9,14 @@ import { triggerSpaceAssignment } from "../spaces/space-assignment";
 import { prisma } from "../utils/prisma";
 import { EpisodeType } from "@core/types";
 import { deductCredits, hasCredits } from "../utils/utils";
+import { assignEpisodesToSpace } from "~/services/graphModels/space";
 
 export const IngestBodyRequest = z.object({
   episodeBody: z.string(),
   referenceTime: z.string(),
   metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   source: z.string(),
-  spaceId: z.string().optional(),
+  spaceIds: z.array(z.string()).optional(),
   sessionId: z.string().optional(),
   type: z
     .enum([EpisodeType.CONVERSATION, EpisodeType.DOCUMENT])
@@ -148,23 +149,49 @@ export const ingestTask = task({
         );
       }
 
-      // Trigger space assignment after successful ingestion
+      // Handle space assignment after successful ingestion
       try {
-        logger.info(`Triggering space assignment after successful ingestion`, {
-          userId: payload.userId,
-          workspaceId: payload.workspaceId,
-          episodeId: episodeDetails?.episodeUuid,
-        });
-        if (
-          episodeDetails.episodeUuid &&
-          currentStatus === IngestionStatus.COMPLETED
-        ) {
-          await triggerSpaceAssignment({
+        // If spaceIds were explicitly provided, immediately assign the episode to those spaces
+        if (episodeBody.spaceIds && episodeBody.spaceIds.length > 0 && episodeDetails.episodeUuid) {
+          logger.info(`Assigning episode to explicitly provided spaces`, {
             userId: payload.userId,
-            workspaceId: payload.workspaceId,
-            mode: "episode",
-            episodeIds: episodeUuids,
+            episodeId: episodeDetails.episodeUuid,
+            spaceIds: episodeBody.spaceIds,
           });
+
+          // Assign episode to each space
+          for (const spaceId of episodeBody.spaceIds) {
+            await assignEpisodesToSpace(
+              [episodeDetails.episodeUuid],
+              spaceId,
+              payload.userId,
+            );
+          }
+
+          logger.info(
+            `Skipping LLM space assignment - episode explicitly assigned to ${episodeBody.spaceIds.length} space(s)`,
+          );
+        } else {
+          // Only trigger automatic LLM space assignment if no explicit spaceIds were provided
+          logger.info(
+            `Triggering LLM space assignment after successful ingestion`,
+            {
+              userId: payload.userId,
+              workspaceId: payload.workspaceId,
+              episodeId: episodeDetails?.episodeUuid,
+            },
+          );
+          if (
+            episodeDetails.episodeUuid &&
+            currentStatus === IngestionStatus.COMPLETED
+          ) {
+            await triggerSpaceAssignment({
+              userId: payload.userId,
+              workspaceId: payload.workspaceId,
+              mode: "episode",
+              episodeIds: episodeUuids,
+            });
+          }
         }
       } catch (assignmentError) {
         // Don't fail the ingestion if assignment fails

@@ -5,7 +5,8 @@ import { useChanged } from "./useChanged";
 import { useTypedMatchesData } from "./useTypedMatchData";
 
 export interface ExtendedUser extends User {
-  availableCredits?: number;
+  availableCredits: number;
+  totalCredits: number;
 }
 
 export function useIsImpersonating(matches?: UIMatch[]) {
@@ -23,7 +24,11 @@ export function useOptionalUser(matches?: UIMatch[]): ExtendedUser | undefined {
   });
 
   return routeMatch?.user
-    ? { ...routeMatch?.user, availableCredits: routeMatch?.availableCredits }
+    ? {
+        ...routeMatch?.user,
+        availableCredits: routeMatch?.availableCredits,
+        totalCredits: routeMatch?.totalCredits,
+      }
     : undefined;
 }
 

@@ -3,6 +3,7 @@ import { addToQueue } from "~/lib/ingest.server";
 import { logger } from "~/services/logger.service";
 import { SearchService } from "~/services/search.server";
 import { SpaceService } from "~/services/space.server";
+import { IntegrationLoader } from "./integration-loader";
 
 const searchService = new SearchService();
 const spaceService = new SpaceService();
@@ -13,29 +14,31 @@ const SearchParamsSchema = {
   properties: {
     query: {
       type: "string",
-      description: "The search query in third person perspective",
+      description:
+        "Search query as a simple statement or question. Write what you want to find, not a command. GOOD: 'user preferences for code style' or 'previous bugs in authentication' or 'GitHub integration setup'. BAD: 'search for' or 'find me' or 'get the'. Just state the topic directly.",
     },
     validAt: {
       type: "string",
       description:
-        "Point-in-time reference for temporal queries (ISO format). Returns facts valid at this timestamp. Defaults to current time if not specified.",
+        "Optional: ISO timestamp (like '2024-01-15T10:30:00Z'). Get facts that were true at this specific time. Leave empty for current facts.",
     },
     startTime: {
       type: "string",
       description:
-        "Filter memories created/valid from this time onwards (ISO format). Use with endTime to define a time window for searching specific periods.",
+        "Optional: ISO timestamp (like '2024-01-01T00:00:00Z'). Only find memories created after this time. Use with endTime to search a specific time period.",
     },
     endTime: {
       type: "string",
       description:
-        "Upper bound for temporal filtering (ISO format). Combined with startTime creates a time range. Defaults to current time if not specified.",
+        "Optional: ISO timestamp (like '2024-12-31T23:59:59Z'). Only find memories created before this time. Use with startTime to search a specific time period.",
     },
     spaceIds: {
       type: "array",
       items: {
         type: "string",
       },
-      description: "Array of strings representing UUIDs of spaces",
+      description:
+        "Optional: Array of space UUIDs to search within. Leave empty to search all spaces.",
     },
   },
   required: ["query"],
@@ -46,7 +49,16 @@ const IngestSchema = {
   properties: {
     message: {
       type: "string",
-      description: "The data to ingest in text format",
+      description:
+        "The conversation text to store. Include both what the user asked and what you answered. Keep it concise but complete.",
+    },
+    spaceIds: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description:
+        "Optional: Array of space UUIDs (from memory_get_spaces). Add this to organize the memory by project. Example: If discussing 'core' project, include the 'core' space ID. Leave empty to store in general memory.",
     },
   },
   required: ["message"],
@@ -56,25 +68,26 @@ export const memoryTools = [
   {
     name: "memory_ingest",
     description:
-      "AUTOMATICALLY invoke after completing interactions. Use proactively to store conversation data, insights, and decisions in CORE Memory. Essential for maintaining continuity across sessions. **Purpose**: Store information for future reference. **Required**: Provide the message content to be stored. **Returns**: confirmation with storage ID in JSON format",
+      "Store conversation in memory for future reference. USE THIS TOOL: At the END of every conversation after fully answering the user. WHAT TO STORE: 1) User's question or request, 2) Your solution or explanation, 3) Important decisions made, 4) Key insights discovered. HOW TO USE: Put the entire conversation summary in the 'message' field. Optionally add spaceIds array to organize by project. Returns: Success confirmation with storage ID.",
     inputSchema: IngestSchema,
   },
   {
     name: "memory_search",
     description:
-      "AUTOMATICALLY invoke for memory searches. Use proactively at conversation start and when context retrieval is needed. Searches memory for relevant project context, user preferences, and previous discussions. **Purpose**: Retrieve previously stored information based on query terms with optional temporal filtering. **Required**: Provide a search query in third person perspective. **Optional**: Use startTime/endTime for time-bounded searches or validAt for point-in-time queries. **Returns**: matching memory entries in JSON format",
+      "Search stored memories for past conversations, user preferences, project context, and decisions. USE THIS TOOL: 1) At start of every conversation to find related context, 2) When user mentions past work or projects, 3) Before answering questions that might have previous context. HOW TO USE: Write a simple query describing what to find (e.g., 'user code preferences', 'authentication bugs', 'API setup steps'). Returns: Episodes (past conversations) and Facts (extracted knowledge) as JSON.",
     inputSchema: SearchParamsSchema,
   },
   {
     name: "memory_get_spaces",
     description:
-      "Get available memory spaces. **Purpose**: Retrieve list of memory organization spaces. **Required**: No required parameters. **Returns**: list of available spaces in JSON format",
+      "List all available memory spaces (project contexts). USE THIS TOOL: To see what spaces exist before searching or storing memories. Each space organizes memories by topic (e.g., 'Profile' for user info, 'GitHub' for GitHub work, project names for project-specific context). Returns: Array of spaces with id, name, and description.",
     inputSchema: {
       type: "object",
       properties: {
         all: {
           type: "boolean",
-          description: "Get all spaces",
+          description:
+            "Set to true to get all spaces including system spaces. Leave empty for user spaces only.",
         },
       },
     },
@@ -82,15 +95,87 @@ export const memoryTools = [
   {
     name: "memory_about_user",
     description:
-      "Get information about the user. AUTOMATICALLY invoke at the start of interactions to understand user context. Returns the user's background, preferences, work, interests, and other personal information. **Required**: No required parameters. **Returns**: User information as text.",
+      "Get user's profile information (background, preferences, work, interests). USE THIS TOOL: At the start of conversations to understand who you're helping. This provides context about the user's technical preferences, work style, and personal details. Returns: User profile summary as text.",
     inputSchema: {
       type: "object",
       properties: {
         profile: {
           type: "boolean",
-          description: "Get user profile",
+          description:
+            "Set to true to get full profile. Leave empty for default profile view.",
         },
       },
+    },
+  },
+  {
+    name: "memory_get_space",
+    description:
+      "Get detailed information about a specific space including its full summary. USE THIS TOOL: When working on a project to get comprehensive context about that project. The summary contains consolidated knowledge about the space topic. HOW TO USE: Provide either spaceName (like 'core', 'GitHub', 'Profile') OR spaceId (UUID). Returns: Space details with full summary, description, and metadata.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        spaceId: {
+          type: "string",
+          description:
+            "UUID of the space (use this if you have the ID from memory_get_spaces)",
+        },
+        spaceName: {
+          type: "string",
+          description:
+            "Name of the space (easier option). Examples: 'core', 'Profile', 'GitHub', 'Health'",
+        },
+      },
+    },
+  },
+  {
+    name: "get_integrations",
+    description:
+      "List all connected integrations (GitHub, Linear, Slack, etc.). USE THIS TOOL: Before using integration actions to see what's available. WORKFLOW: 1) Call this to see available integrations, 2) Call get_integration_actions with a slug to see what you can do, 3) Call execute_integration_action to do it. Returns: Array with slug, name, accountId, and hasMcp for each integration.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_integration_actions",
+    description:
+      "Get list of actions available for a specific integration. USE THIS TOOL: After get_integrations to see what operations you can perform. For example, GitHub integration has actions like 'get_pr', 'get_issues', 'create_issue'. HOW TO USE: Provide the integrationSlug from get_integrations (like 'github', 'linear', 'slack'). Returns: Array of actions with name, description, and inputSchema for each.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        integrationSlug: {
+          type: "string",
+          description:
+            "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
+        },
+      },
+      required: ["integrationSlug"],
+    },
+  },
+  {
+    name: "execute_integration_action",
+    description:
+      "Execute an action on an integration (fetch GitHub PR, create Linear issue, send Slack message, etc.). USE THIS TOOL: After using get_integration_actions to see available actions. HOW TO USE: 1) Set integrationSlug (like 'github'), 2) Set action name (like 'get_pr'), 3) Set arguments object with required parameters from the action's inputSchema. Returns: Result of the action execution.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        integrationSlug: {
+          type: "string",
+          description:
+            "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
+        },
+        action: {
+          type: "string",
+          description:
+            "Action name from get_integration_actions. Examples: 'get_pr', 'get_issues', 'create_issue'",
+        },
+        arguments: {
+          type: "object",
+          description:
+            "Parameters for the action. Check the action's inputSchema from get_integration_actions to see what's required.",
+        },
+      },
+      required: ["integrationSlug", "action"],
     },
   },
 ];
@@ -112,6 +197,14 @@ export async function callMemoryTool(
         return await handleMemoryGetSpaces(userId);
       case "memory_about_user":
         return await handleUserProfile(userId);
+      case "memory_get_space":
+        return await handleGetSpace({ ...args, userId });
+      case "get_integrations":
+        return await handleGetIntegrations({ ...args, userId });
+      case "get_integration_actions":
+        return await handleGetIntegrationActions({ ...args });
+      case "execute_integration_action":
+        return await handleExecuteIntegrationAction({ ...args });
       default:
         throw new Error(`Unknown memory tool: ${toolName}`);
     }
@@ -160,12 +253,17 @@ async function handleUserProfile(userId: string) {
 // Handler for memory_ingest
 async function handleMemoryIngest(args: any) {
   try {
+    // Use spaceIds from args if provided, otherwise use spaceId from query params
+    const spaceIds =
+      args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+
     const response = await addToQueue(
       {
         episodeBody: args.message,
         referenceTime: new Date().toISOString(),
         source: args.source,
         type: EpisodeTypeEnum.CONVERSATION,
+        spaceIds,
       },
       args.userId,
     );
@@ -198,12 +296,17 @@ async function handleMemoryIngest(args: any) {
 // Handler for memory_search
 async function handleMemorySearch(args: any) {
   try {
+    // Use spaceIds from args if provided, otherwise use spaceId from query params
+    const spaceIds =
+      args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+
     const results = await searchService.search(
       args.query,
       args.userId,
       {
         startTime: args.startTime ? new Date(args.startTime) : undefined,
         endTime: args.endTime ? new Date(args.endTime) : undefined,
+        spaceIds,
       },
       args.source,
     );
@@ -235,11 +338,17 @@ async function handleMemoryGetSpaces(userId: string) {
   try {
     const spaces = await spaceService.getUserSpaces(userId);
 
+    // Return id, name, and description for listing
+    const simplifiedSpaces = spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+    }));
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(spaces),
+          text: JSON.stringify(simplifiedSpaces),
         },
       ],
       isError: false,
@@ -252,6 +361,185 @@ async function handleMemoryGetSpaces(userId: string) {
         {
           type: "text",
           text: `Error getting spaces: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// Handler for memory_get_space
+async function handleGetSpace(args: any) {
+  try {
+    const { spaceId, spaceName, userId } = args;
+
+    if (!spaceId && !spaceName) {
+      throw new Error("Either spaceId or spaceName is required");
+    }
+
+    let space;
+    if (spaceName) {
+      space = await spaceService.getSpaceByName(spaceName, userId);
+    } else {
+      space = await spaceService.getSpace(spaceId, userId);
+    }
+
+    if (!space) {
+      throw new Error(`Space not found: ${spaceName || spaceId}`);
+    }
+
+    // Return id, name, description, and summary for detailed view
+    const spaceDetails = {
+      id: space.id,
+      name: space.name,
+      summary: space.summary,
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(spaceDetails),
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    logger.error(`MCP get space error: ${error}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error getting space: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// Handler for get_integrations
+async function handleGetIntegrations(args: any) {
+  try {
+    const { userId, workspaceId } = args;
+
+    if (!workspaceId) {
+      throw new Error("workspaceId is required");
+    }
+
+    const integrations =
+      await IntegrationLoader.getConnectedIntegrationAccounts(
+        userId,
+        workspaceId,
+      );
+
+    const simplifiedIntegrations = integrations.map((account) => ({
+      slug: account.integrationDefinition.slug,
+      name: account.integrationDefinition.name,
+      accountId: account.id,
+      hasMcp: !!account.integrationDefinition.spec?.mcp,
+    }));
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(simplifiedIntegrations),
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    logger.error(`MCP get integrations error: ${error}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error getting integrations: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// Handler for get_integration_actions
+async function handleGetIntegrationActions(args: any) {
+  try {
+    const { integrationSlug, sessionId } = args;
+
+    if (!integrationSlug) {
+      throw new Error("integrationSlug is required");
+    }
+
+    if (!sessionId) {
+      throw new Error("sessionId is required");
+    }
+
+    const tools = await IntegrationLoader.getIntegrationTools(
+      sessionId,
+      integrationSlug,
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(tools),
+        },
+      ],
+      isError: false,
+    };
+  } catch (error) {
+    logger.error(`MCP get integration actions error: ${error}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error getting integration actions: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// Handler for execute_integration_action
+async function handleExecuteIntegrationAction(args: any) {
+  try {
+    const { integrationSlug, action, arguments: actionArgs, sessionId } = args;
+
+    if (!integrationSlug) {
+      throw new Error("integrationSlug is required");
+    }
+
+    if (!action) {
+      throw new Error("action is required");
+    }
+
+    if (!sessionId) {
+      throw new Error("sessionId is required");
+    }
+
+    const toolName = `${integrationSlug}_${action}`;
+    const result = await IntegrationLoader.callIntegrationTool(
+      sessionId,
+      toolName,
+      actionArgs || {},
+    );
+
+    return result;
+  } catch (error) {
+    logger.error(`MCP execute integration action error: ${error}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error executing integration action: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
       isError: true,

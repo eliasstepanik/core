@@ -19,7 +19,8 @@ import { ensureBillingInitialized } from "./billing.server";
 const QueryParams = z.object({
   source: z.string().optional(),
   integrations: z.string().optional(), // comma-separated slugs
-  no_integrations: z.boolean().optional(), // comma-separated slugs
+  no_integrations: z.boolean().optional(),
+  spaceId: z.string().optional(), // space UUID to associate memories with
 });
 
 // Create MCP server with memory tools + dynamic integration tools
@@ -27,6 +28,7 @@ async function createMcpServer(
   userId: string,
   sessionId: string,
   source: string,
+  spaceId?: string,
 ) {
   const server = new Server(
     {
@@ -40,19 +42,12 @@ async function createMcpServer(
     },
   );
 
-  // Dynamic tool listing that includes integration tools
+  // Dynamic tool listing - only expose memory tools and meta-tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    // Get integration tools
-    let integrationTools: any[] = [];
-    try {
-      integrationTools =
-        await IntegrationLoader.getAllIntegrationTools(sessionId);
-    } catch (error) {
-      logger.error(`Error loading integration tools: ${error}`);
-    }
-
+    // Only return memory tools (which now includes integration meta-tools)
+    // Integration-specific tools are discovered via get_integration_actions
     return {
-      tools: [...memoryTools, ...integrationTools],
+      tools: memoryTools,
     };
   });
 
@@ -60,30 +55,21 @@ async function createMcpServer(
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // Handle memory tools
-    if (name.startsWith("memory_")) {
-      return await callMemoryTool(name, args, userId, source);
-    }
-
-    // Handle integration tools (prefixed with integration slug)
-    if (name.includes("_") && !name.startsWith("memory_")) {
-      try {
-        return await IntegrationLoader.callIntegrationTool(
-          sessionId,
-          name,
-          args,
-        );
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error calling integration tool: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-          isError: true,
-        };
-      }
+    // Handle memory tools and integration meta-tools
+    if (
+      name.startsWith("memory_") ||
+      name === "get_integrations" ||
+      name === "get_integration_actions" ||
+      name === "execute_integration_action"
+    ) {
+      // Get workspace for integration tools
+      const workspace = await getWorkspaceByUser(userId);
+      return await callMemoryTool(
+        name,
+        { ...args, sessionId, workspaceId: workspace?.id, spaceId },
+        userId,
+        source,
+      );
     }
 
     throw new Error(`Unknown tool: ${name}`);
@@ -100,6 +86,7 @@ async function createTransport(
   noIntegrations: boolean,
   userId: string,
   workspaceId: string,
+  spaceId?: string,
 ): Promise<StreamableHTTPServerTransport> {
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => sessionId,
@@ -171,7 +158,7 @@ async function createTransport(
   }
 
   // Create and connect MCP server
-  const server = await createMcpServer(userId, sessionId, source);
+  const server = await createMcpServer(userId, sessionId, source, spaceId);
   await server.connect(transport);
 
   return transport;
@@ -191,6 +178,7 @@ export const handleMCPRequest = async (
     : [];
 
   const noIntegrations = queryParams.no_integrations ?? false;
+  const spaceId = queryParams.spaceId; // Extract spaceId from query params
 
   const userId = authentication.userId;
   const workspace = await getWorkspaceByUser(userId);
@@ -220,6 +208,7 @@ export const handleMCPRequest = async (
             noIntegrations,
             userId,
             workspaceId,
+            spaceId,
           );
         } else {
           throw new Error("Session not found in database");
@@ -237,6 +226,7 @@ export const handleMCPRequest = async (
         noIntegrations,
         userId,
         workspaceId,
+        spaceId,
       );
     } else {
       // Invalid request

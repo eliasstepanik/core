@@ -56,13 +56,12 @@ export async function getSpace(
   const query = `
     MATCH (s:Space {uuid: $spaceId, userId: $userId})
     WHERE s.isActive = true
-    
-    // Count statements in this space using optimized approach
-    OPTIONAL MATCH (stmt:Statement {userId: $userId})
-    WHERE stmt.spaceIds IS NOT NULL AND $spaceId IN stmt.spaceIds AND stmt.invalidAt IS NULL
-    
-    WITH s, count(stmt) as statementCount
-    RETURN s, statementCount
+
+    // Count episodes assigned to this space using direct relationship
+    OPTIONAL MATCH (s)-[:HAS_EPISODE]->(e:Episode {userId: $userId})
+
+    WITH s, count(e) as episodeCount
+    RETURN s, episodeCount
   `;
 
   const result = await runQuery(query, { spaceId, userId });
@@ -71,7 +70,7 @@ export async function getSpace(
   }
 
   const spaceData = result[0].get("s").properties;
-  const statementCount = result[0].get("statementCount") || 0;
+  const episodeCount = result[0].get("episodeCount") || 0;
 
   return {
     uuid: spaceData.uuid,
@@ -81,7 +80,7 @@ export async function getSpace(
     createdAt: new Date(spaceData.createdAt),
     updatedAt: new Date(spaceData.updatedAt),
     isActive: spaceData.isActive,
-    statementCount: Number(statementCount),
+    contextCount: Number(episodeCount), // Episode count = context count
   };
 }
 
@@ -151,28 +150,53 @@ export async function deleteSpace(
     }
 
     // 2. Clean up statement references (remove spaceId from spaceIds arrays)
-    const cleanupQuery = `
+    const cleanupStatementsQuery = `
       MATCH (s:Statement {userId: $userId})
       WHERE s.spaceIds IS NOT NULL AND $spaceId IN s.spaceIds
       SET s.spaceIds = [id IN s.spaceIds WHERE id <> $spaceId]
       RETURN count(s) as updatedStatements
     `;
 
-    const cleanupResult = await runQuery(cleanupQuery, { userId, spaceId });
-    const updatedStatements = cleanupResult[0]?.get("updatedStatements") || 0;
+    const cleanupStatementsResult = await runQuery(cleanupStatementsQuery, {
+      userId,
+      spaceId,
+    });
+    const updatedStatements =
+      cleanupStatementsResult[0]?.get("updatedStatements") || 0;
 
-    // 3. Delete the space node
+    // 3. Clean up episode references (remove spaceId from spaceIds arrays)
+    const cleanupEpisodesQuery = `
+      MATCH (e:Episode {userId: $userId})
+      WHERE e.spaceIds IS NOT NULL AND $spaceId IN e.spaceIds
+      SET e.spaceIds = [id IN e.spaceIds WHERE id <> $spaceId]
+      RETURN count(e) as updatedEpisodes
+    `;
+
+    const cleanupEpisodesResult = await runQuery(cleanupEpisodesQuery, {
+      userId,
+      spaceId,
+    });
+    const updatedEpisodes =
+      cleanupEpisodesResult[0]?.get("updatedEpisodes") || 0;
+
+    // 4. Delete the space node and all its relationships
     const deleteQuery = `
       MATCH (space:Space {uuid: $spaceId, userId: $userId})
-      DELETE space
+      DETACH DELETE space
       RETURN count(space) as deletedSpaces
     `;
 
     await runQuery(deleteQuery, { userId, spaceId });
 
+    logger.info(`Deleted space ${spaceId}`, {
+      userId,
+      statementsUpdated: updatedStatements,
+      episodesUpdated: updatedEpisodes,
+    });
+
     return {
       deleted: true,
-      statementsUpdated: Number(updatedStatements),
+      statementsUpdated: Number(updatedStatements) + Number(updatedEpisodes),
     };
   } catch (error) {
     return {
@@ -184,10 +208,10 @@ export async function deleteSpace(
 }
 
 /**
- * Assign statements to a space
+ * Assign episodes to a space using intent-based matching
  */
-export async function assignStatementsToSpace(
-  statementIds: string[],
+export async function assignEpisodesToSpace(
+  episodeIds: string[],
   spaceId: string,
   userId: string,
 ): Promise<SpaceAssignmentResult> {
@@ -202,30 +226,48 @@ export async function assignStatementsToSpace(
       };
     }
 
+    // Update episodes with spaceIds array AND create HAS_EPISODE relationships
+    // This hybrid approach enables both fast array lookups and graph traversal
     const query = `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.uuid IN $statementIds
-      SET s.spaceIds = CASE 
-        WHEN s.spaceIds IS NULL THEN [$spaceId]
-        WHEN $spaceId IN s.spaceIds THEN s.spaceIds
-        ELSE s.spaceIds + [$spaceId]
+      MATCH (space:Space {uuid: $spaceId, userId: $userId})
+      MATCH (e:Episode {userId: $userId})
+      WHERE e.uuid IN $episodeIds
+      SET e.spaceIds = CASE
+        WHEN e.spaceIds IS NULL THEN [$spaceId]
+        WHEN $spaceId IN e.spaceIds THEN e.spaceIds
+        ELSE e.spaceIds + [$spaceId]
       END,
-      s.lastSpaceAssignment = datetime(),
-      s.spaceAssignmentMethod = CASE 
-        WHEN s.spaceAssignmentMethod IS NULL THEN 'manual'
-        ELSE s.spaceAssignmentMethod
+      e.lastSpaceAssignment = datetime(),
+      e.spaceAssignmentMethod = CASE
+        WHEN e.spaceAssignmentMethod IS NULL THEN 'intent_based'
+        ELSE e.spaceAssignmentMethod
       END
-      RETURN count(s) as updated
+      WITH e, space
+      MERGE (space)-[r:HAS_EPISODE]->(e)
+      ON CREATE SET
+        r.assignedAt = datetime(),
+        r.assignmentMethod = 'intent_based'
+      RETURN count(e) as updated
     `;
 
-    const result = await runQuery(query, { statementIds, spaceId, userId });
+    const result = await runQuery(query, { episodeIds, spaceId, userId });
     const updatedCount = result[0]?.get("updated") || 0;
+
+    logger.info(`Assigned ${updatedCount} episodes to space ${spaceId}`, {
+      episodeIds: episodeIds.length,
+      userId,
+    });
 
     return {
       success: true,
       statementsUpdated: Number(updatedCount),
     };
   } catch (error) {
+    logger.error(`Error assigning episodes to space:`, {
+      error,
+      spaceId,
+      episodeIds: episodeIds.length,
+    });
     return {
       success: false,
       statementsUpdated: 0,
@@ -235,22 +277,26 @@ export async function assignStatementsToSpace(
 }
 
 /**
- * Remove statements from a space
+ * Remove episodes from a space
  */
-export async function removeStatementsFromSpace(
-  statementIds: string[],
+export async function removeEpisodesFromSpace(
+  episodeIds: string[],
   spaceId: string,
   userId: string,
 ): Promise<SpaceAssignmentResult> {
   try {
+    // Remove from both spaceIds array and HAS_EPISODE relationship
     const query = `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.uuid IN $statementIds AND s.spaceIds IS NOT NULL AND $spaceId IN s.spaceIds
-      SET s.spaceIds = [id IN s.spaceIds WHERE id <> $spaceId]
-      RETURN count(s) as updated
+      MATCH (e:Episode {userId: $userId})
+      WHERE e.uuid IN $episodeIds AND e.spaceIds IS NOT NULL AND $spaceId IN e.spaceIds
+      SET e.spaceIds = [id IN e.spaceIds WHERE id <> $spaceId]
+      WITH e
+      MATCH (space:Space {uuid: $spaceId, userId: $userId})-[r:HAS_EPISODE]->(e)
+      DELETE r
+      RETURN count(e) as updated
     `;
 
-    const result = await runQuery(query, { statementIds, spaceId, userId });
+    const result = await runQuery(query, { episodeIds, spaceId, userId });
     const updatedCount = result[0]?.get("updated") || 0;
 
     return {
@@ -267,199 +313,79 @@ export async function removeStatementsFromSpace(
 }
 
 /**
- * Get all statements in a space
+ * Get all episodes in a space
  */
-export async function getSpaceStatements(spaceId: string, userId: string) {
+export async function getSpaceEpisodes(spaceId: string, userId: string) {
   const query = `
-    MATCH (s:Statement {userId: $userId})
-    WHERE s.spaceIds IS NOT NULL AND $spaceId IN s.spaceIds AND s.invalidAt IS NULL
-    MATCH (s)-[:HAS_SUBJECT]->(subj:Entity)
-    MATCH (s)-[:HAS_PREDICATE]->(pred:Entity)
-    MATCH (s)-[:HAS_OBJECT]->(obj:Entity)
-    RETURN s, subj.name as subject, pred.name as predicate, obj.name as object
-    ORDER BY s.createdAt DESC
+    MATCH (space:Space {uuid: $spaceId, userId: $userId})-[:HAS_EPISODE]->(e:Episode {userId: $userId})
+    RETURN e
+    ORDER BY e.createdAt DESC
   `;
 
   const result = await runQuery(query, { spaceId, userId });
 
   return result.map((record) => {
-    const statement = record.get("s").properties;
+    const episode = record.get("e").properties;
     return {
-      uuid: statement.uuid,
-      fact: statement.fact,
-      subject: record.get("subject"),
-      predicate: record.get("predicate"),
-      object: record.get("object"),
-      createdAt: new Date(statement.createdAt),
-      validAt: new Date(statement.validAt),
-      invalidAt: statement.invalidAt
-        ? new Date(statement.invalidAt)
-        : undefined,
-      spaceIds: statement.spaceIds || [],
-      recallCount: statement.recallCount,
+      uuid: episode.uuid,
+      content: episode.content,
+      originalContent: episode.originalContent,
+      source: episode.source,
+      createdAt: new Date(episode.createdAt),
+      validAt: new Date(episode.validAt),
+      metadata: JSON.parse(episode.metadata || "{}"),
+      sessionId: episode.sessionId,
     };
   });
 }
 
 /**
- * Get real-time statement count for a space from Neo4j
+ * Get episode count for a space
  */
-export async function getSpaceStatementCount(
+export async function getSpaceEpisodeCount(
   spaceId: string,
   userId: string,
 ): Promise<number> {
+  // Use spaceIds array for faster lookup instead of relationship traversal
   const query = `
-    MATCH (s:Statement {userId: $userId})
-    WHERE s.spaceIds IS NOT NULL 
-      AND $spaceId IN s.spaceIds 
-    RETURN count(s) as statementCount
+    MATCH (e:Episode {userId: $userId})
+    WHERE e.spaceIds IS NOT NULL AND $spaceId IN e.spaceIds
+    RETURN count(e) as episodeCount
   `;
 
   const result = await runQuery(query, { spaceId, userId });
-  return Number(result[0]?.get("statementCount") || 0);
+  return Number(result[0]?.get("episodeCount") || 0);
 }
 
 /**
- * Check if a space should trigger pattern analysis based on growth thresholds
+ * Get spaces for specific episodes
  */
-export async function shouldTriggerSpacePattern(
-  spaceId: string,
+export async function getSpacesForEpisodes(
+  episodeIds: string[],
   userId: string,
-): Promise<{
-  shouldTrigger: boolean;
-  isNewSpace: boolean;
-  currentCount: number;
-}> {
-  try {
-    // Get current statement count from Neo4j
-    const currentCount = await getSpaceStatementCount(spaceId, userId);
+): Promise<Record<string, string[]>> {
+  const query = `
+    UNWIND $episodeIds as episodeId
+    MATCH (e:Episode {uuid: episodeId, userId: $userId})
+    WHERE e.spaceIds IS NOT NULL AND size(e.spaceIds) > 0
+    RETURN episodeId, e.spaceIds as spaceIds
+  `;
 
-    // Get space data from PostgreSQL
-    const space = await prisma.space.findUnique({
-      where: { id: spaceId },
-      select: {
-        lastPatternTrigger: true,
-        statementCountAtLastTrigger: true,
-      },
-    });
+  const result = await runQuery(query, { episodeIds, userId });
 
-    if (!space) {
-      logger.warn(`Space ${spaceId} not found when checking pattern trigger`);
-      return { shouldTrigger: false, isNewSpace: false, currentCount };
-    }
+  const spacesMap: Record<string, string[]> = {};
 
-    const isNewSpace = !space.lastPatternTrigger;
-    const previousCount = space.statementCountAtLastTrigger || 0;
-    const growth = currentCount - previousCount;
+  // Initialize all episodes with empty arrays
+  episodeIds.forEach((id) => {
+    spacesMap[id] = [];
+  });
 
-    // Trigger if: new space OR growth >= 100 statements
-    const shouldTrigger = isNewSpace || growth >= 100;
+  // Fill in the spaceIds for episodes that have them
+  result.forEach((record) => {
+    const episodeId = record.get("episodeId");
+    const spaceIds = record.get("spaceIds");
+    spacesMap[episodeId] = spaceIds || [];
+  });
 
-    logger.info(`Space pattern trigger check`, {
-      spaceId,
-      currentCount,
-      previousCount,
-      growth,
-      isNewSpace,
-      shouldTrigger,
-    });
-
-    return { shouldTrigger, isNewSpace, currentCount };
-  } catch (error) {
-    logger.error(`Error checking space pattern trigger:`, {
-      error,
-      spaceId,
-      userId,
-    });
-    return { shouldTrigger: false, isNewSpace: false, currentCount: 0 };
-  }
-}
-
-/**
- * Atomically update pattern trigger timestamp and statement count to prevent race conditions
- */
-export async function atomicUpdatePatternTrigger(
-  spaceId: string,
-  currentCount: number,
-): Promise<{ updated: boolean; isNewSpace: boolean } | null> {
-  try {
-    // Use a transaction to atomically check and update
-    const result = await prisma.$transaction(async (tx) => {
-      // Get current state
-      const space = await tx.space.findUnique({
-        where: { id: spaceId },
-        select: {
-          lastPatternTrigger: true,
-          statementCountAtLastTrigger: true,
-        },
-      });
-
-      if (!space) {
-        throw new Error(`Space ${spaceId} not found`);
-      }
-
-      const isNewSpace = !space.lastPatternTrigger;
-      const previousCount = space.statementCountAtLastTrigger || 0;
-      const growth = currentCount - previousCount;
-
-      // Double-check if we still need to trigger (race condition protection)
-      const shouldTrigger = isNewSpace || growth >= 100;
-
-      if (!shouldTrigger) {
-        return { updated: false, isNewSpace: false };
-      }
-
-      // Update the trigger timestamp and count atomically
-      await tx.space.update({
-        where: { id: spaceId },
-        data: {
-          lastPatternTrigger: new Date(),
-          statementCountAtLastTrigger: currentCount,
-        },
-      });
-
-      logger.info(`Atomically updated pattern trigger for space`, {
-        spaceId,
-        previousCount,
-        currentCount,
-        growth,
-        isNewSpace,
-      });
-
-      return { updated: true, isNewSpace };
-    });
-
-    return result;
-  } catch (error) {
-    logger.error(`Error in atomic pattern trigger update:`, {
-      error,
-      spaceId,
-      currentCount,
-    });
-    return null;
-  }
-}
-
-/**
- * Initialize spaceIds array for existing statements (migration helper)
- */
-export async function initializeStatementSpaceIds(
-  userId?: string,
-): Promise<number> {
-  const query = userId
-    ? `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.spaceIds IS NULL
-      SET s.spaceIds = []
-      RETURN count(s) as updated
-    `
-    : `
-      MATCH (s:Statement)
-      WHERE s.spaceIds IS NULL
-      SET s.spaceIds = []
-      RETURN count(s) as updated
-    `;
-
-  const result = await runQuery(query, userId ? { userId } : {});
-  return Number(result[0]?.get("updated") || 0);
+  return spacesMap;
 }

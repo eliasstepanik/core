@@ -6,7 +6,7 @@ export interface SpaceNode {
   createdAt: Date;
   updatedAt: Date;
   isActive: boolean;
-  statementCount?: number; // Computed field
+  contextCount?: number; // Computed field - count of episodes assigned to this space
   embedding?: number[]; // For future space similarity
 }
 

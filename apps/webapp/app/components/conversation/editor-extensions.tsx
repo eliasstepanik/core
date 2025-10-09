@@ -9,6 +9,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
 import { all, createLowlight } from "lowlight";
 import { mergeAttributes, type Extension } from "@tiptap/react";
+import { Markdown } from "tiptap-markdown";
 
 // create a lowlight instance with all languages loaded
 export const lowlight = createLowlight(all);
@@ -136,4 +137,5 @@ export const extensionsForConversation = [
   CodeBlockLowlight.configure({
     lowlight,
   }),
+  Markdown,
 ];
