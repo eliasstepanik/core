@@ -14,7 +14,8 @@ const SearchParamsSchema = {
   properties: {
     query: {
       type: "string",
-      description: "Search query as a simple statement or question. Write what you want to find, not a command. GOOD: 'user preferences for code style' or 'previous bugs in authentication' or 'GitHub integration setup'. BAD: 'search for' or 'find me' or 'get the'. Just state the topic directly.",
+      description:
+        "Search query as a simple statement or question. Write what you want to find, not a command. GOOD: 'user preferences for code style' or 'previous bugs in authentication' or 'GitHub integration setup'. BAD: 'search for' or 'find me' or 'get the'. Just state the topic directly.",
     },
     validAt: {
       type: "string",
@@ -36,7 +37,8 @@ const SearchParamsSchema = {
       items: {
         type: "string",
       },
-      description: "Optional: Array of space UUIDs to search within. Leave empty to search all spaces.",
+      description:
+        "Optional: Array of space UUIDs to search within. Leave empty to search all spaces.",
     },
   },
   required: ["query"],
@@ -47,14 +49,16 @@ const IngestSchema = {
   properties: {
     message: {
       type: "string",
-      description: "The conversation text to store. Include both what the user asked and what you answered. Keep it concise but complete.",
+      description:
+        "The conversation text to store. Include both what the user asked and what you answered. Keep it concise but complete.",
     },
     spaceIds: {
       type: "array",
       items: {
         type: "string",
       },
-      description: "Optional: Array of space UUIDs (from memory_get_spaces). Add this to organize the memory by project. Example: If discussing 'core' project, include the 'core' space ID. Leave empty to store in general memory.",
+      description:
+        "Optional: Array of space UUIDs (from memory_get_spaces). Add this to organize the memory by project. Example: If discussing 'core' project, include the 'core' space ID. Leave empty to store in general memory.",
     },
   },
   required: ["message"],
@@ -82,7 +86,8 @@ export const memoryTools = [
       properties: {
         all: {
           type: "boolean",
-          description: "Set to true to get all spaces including system spaces. Leave empty for user spaces only.",
+          description:
+            "Set to true to get all spaces including system spaces. Leave empty for user spaces only.",
         },
       },
     },
@@ -96,7 +101,8 @@ export const memoryTools = [
       properties: {
         profile: {
           type: "boolean",
-          description: "Set to true to get full profile. Leave empty for default profile view.",
+          description:
+            "Set to true to get full profile. Leave empty for default profile view.",
         },
       },
     },
@@ -110,11 +116,13 @@ export const memoryTools = [
       properties: {
         spaceId: {
           type: "string",
-          description: "UUID of the space (use this if you have the ID from memory_get_spaces)",
+          description:
+            "UUID of the space (use this if you have the ID from memory_get_spaces)",
         },
         spaceName: {
           type: "string",
-          description: "Name of the space (easier option). Examples: 'core', 'Profile', 'GitHub', 'Health'",
+          description:
+            "Name of the space (easier option). Examples: 'core', 'Profile', 'GitHub', 'Health'",
         },
       },
     },
@@ -137,7 +145,8 @@ export const memoryTools = [
       properties: {
         integrationSlug: {
           type: "string",
-          description: "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
+          description:
+            "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
         },
       },
       required: ["integrationSlug"],
@@ -152,15 +161,18 @@ export const memoryTools = [
       properties: {
         integrationSlug: {
           type: "string",
-          description: "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
+          description:
+            "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
         },
         action: {
           type: "string",
-          description: "Action name from get_integration_actions. Examples: 'get_pr', 'get_issues', 'create_issue'",
+          description:
+            "Action name from get_integration_actions. Examples: 'get_pr', 'get_issues', 'create_issue'",
         },
         arguments: {
           type: "object",
-          description: "Parameters for the action. Check the action's inputSchema from get_integration_actions to see what's required.",
+          description:
+            "Parameters for the action. Check the action's inputSchema from get_integration_actions to see what's required.",
         },
       },
       required: ["integrationSlug", "action"],
@@ -242,7 +254,8 @@ async function handleUserProfile(userId: string) {
 async function handleMemoryIngest(args: any) {
   try {
     // Use spaceIds from args if provided, otherwise use spaceId from query params
-    const spaceIds = args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+    const spaceIds =
+      args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
 
     const response = await addToQueue(
       {
@@ -284,7 +297,8 @@ async function handleMemoryIngest(args: any) {
 async function handleMemorySearch(args: any) {
   try {
     // Use spaceIds from args if provided, otherwise use spaceId from query params
-    const spaceIds = args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+    const spaceIds =
+      args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
 
     const results = await searchService.search(
       args.query,
@@ -328,7 +342,6 @@ async function handleMemoryGetSpaces(userId: string) {
     const simplifiedSpaces = spaces.map((space) => ({
       id: space.id,
       name: space.name,
-      description: space.description,
     }));
 
     return {
@@ -379,7 +392,6 @@ async function handleGetSpace(args: any) {
     const spaceDetails = {
       id: space.id,
       name: space.name,
-      description: space.description,
       summary: space.summary,
     };
 
@@ -426,7 +438,7 @@ async function handleGetIntegrations(args: any) {
       slug: account.integrationDefinition.slug,
       name: account.integrationDefinition.name,
       accountId: account.id,
-      hasMcp: !!(account.integrationDefinition.spec?.mcp),
+      hasMcp: !!account.integrationDefinition.spec?.mcp,
     }));
 
     return {

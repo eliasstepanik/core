@@ -1,4 +1,4 @@
-import { EllipsisVertical, RefreshCcw, Trash, Edit } from "lucide-react";
+import { EllipsisVertical, RefreshCcw, Trash, Edit, Copy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +19,7 @@ import {
 import { useEffect, useState } from "react";
 import { useFetcher, useNavigate } from "@remix-run/react";
 import { EditSpaceDialog } from "./edit-space-dialog.client";
+import { toast } from "~/hooks/use-toast";
 
 interface SpaceOptionsProps {
   id: string;
@@ -64,6 +65,23 @@ export const SpaceOptions = ({ id, name, description }: SpaceOptionsProps) => {
     // revalidator.revalidate();
   };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      toast({
+        title: "Copied",
+        description: "Space ID copied to clipboard",
+      });
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      toast({
+        title: "Error",
+        description: "Failed to copy ID",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -79,6 +97,11 @@ export const SpaceOptions = ({ id, name, description }: SpaceOptionsProps) => {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleCopy}>
+            <Button variant="link" size="sm" className="gap-2 rounded">
+              <Copy size={15} /> Copy ID
+            </Button>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
             <Button variant="link" size="sm" className="gap-2 rounded">
               <Edit size={15} /> Edit

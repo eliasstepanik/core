@@ -72,27 +72,6 @@ async function createMcpServer(
       );
     }
 
-    // Handle integration tools (prefixed with integration slug)
-    if (name.includes("_") && !name.startsWith("memory_")) {
-      try {
-        return await IntegrationLoader.callIntegrationTool(
-          sessionId,
-          name,
-          args,
-        );
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error calling integration tool: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    }
-
     throw new Error(`Unknown tool: ${name}`);
   });
 

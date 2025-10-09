@@ -41,6 +41,7 @@ import {
 } from "remix-themes";
 import clsx from "clsx";
 import { getUsageSummary } from "./services/billing.server";
+import { Toaster } from "./components/ui/toaster";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 
@@ -126,6 +127,7 @@ function App() {
         </head>
         <body className="bg-background-2 h-[100vh] h-full w-[100vw] overflow-hidden font-sans">
           <Outlet />
+          <Toaster />
           <ScrollRestoration />
 
           <Scripts />

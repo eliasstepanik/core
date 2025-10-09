@@ -1,4 +1,4 @@
-import { EllipsisVertical, Trash } from "lucide-react";
+import { EllipsisVertical, Trash, Copy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import {
 } from "../ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { useFetcher, useNavigate } from "@remix-run/react";
+import { toast } from "~/hooks/use-toast";
 
 interface LogOptionsProps {
   id: string;
@@ -40,6 +41,23 @@ export const LogOptions = ({ id }: LogOptionsProps) => {
     setDeleteDialogOpen(false);
   };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      toast({
+        title: "Copied",
+        description: "Episode ID copied to clipboard",
+      });
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      toast({
+        title: "Error",
+        description: "Failed to copy ID",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (deleteFetcher.state === "idle" && deleteFetcher.data?.success) {
       navigate(`/home/inbox`);
@@ -48,16 +66,26 @@ export const LogOptions = ({ id }: LogOptionsProps) => {
 
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="gap-2 rounded"
-        onClick={(e) => {
-          setDeleteDialogOpen(true);
-        }}
-      >
-        <Trash size={15} /> Delete
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="gap-2 rounded"
+          onClick={handleCopy}
+        >
+          <Copy size={15} /> Copy ID
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="gap-2 rounded"
+          onClick={(e) => {
+            setDeleteDialogOpen(true);
+          }}
+        >
+          <Trash size={15} /> Delete
+        </Button>
+      </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
