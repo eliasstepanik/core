@@ -55,7 +55,7 @@ const SummaryResultSchema = z.object({
 const CONFIG = {
   maxEpisodesForSummary: 20, // Limit episodes for performance
   minEpisodesForSummary: 1, // Minimum episodes to generate summary
-  summaryEpisodeThreshold: 10, // Minimum new episodes required to trigger summary (configurable)
+  summaryEpisodeThreshold: 5, // Minimum new episodes required to trigger summary (configurable)
 };
 
 export const spaceSummaryQueue = queue({
@@ -85,7 +85,11 @@ export const spaceSummaryTask = task({
       });
 
       // Generate summary for the single space
-      const summaryResult = await generateSpaceSummary(spaceId, userId, triggerSource);
+      const summaryResult = await generateSpaceSummary(
+        spaceId,
+        userId,
+        triggerSource,
+      );
 
       if (summaryResult) {
         // Store the summary
@@ -192,7 +196,10 @@ async function generateSpaceSummary(
       const lastSummaryEpisodeCount = space.contextCount || 0;
       const episodeDifference = currentEpisodeCount - lastSummaryEpisodeCount;
 
-      if (episodeDifference < CONFIG.summaryEpisodeThreshold) {
+      if (
+        episodeDifference < CONFIG.summaryEpisodeThreshold ||
+        lastSummaryEpisodeCount === 0
+      ) {
         logger.info(
           `Skipping summary generation for space ${spaceId}: only ${episodeDifference} new episodes (threshold: ${CONFIG.summaryEpisodeThreshold})`,
           {
@@ -200,7 +207,7 @@ async function generateSpaceSummary(
             lastSummaryEpisodeCount,
             episodeDifference,
             threshold: CONFIG.summaryEpisodeThreshold,
-          }
+          },
         );
         return null;
       }
@@ -211,7 +218,7 @@ async function generateSpaceSummary(
           currentEpisodeCount,
           lastSummaryEpisodeCount,
           episodeDifference,
-        }
+        },
       );
     }
 
@@ -361,9 +368,15 @@ async function generateUnifiedSummary(
 
     // Space summary generation requires HIGH complexity (creative synthesis, narrative generation)
     let responseText = "";
-    await makeModelCall(false, prompt, (text: string) => {
-      responseText = text;
-    }, undefined, 'high');
+    await makeModelCall(
+      false,
+      prompt,
+      (text: string) => {
+        responseText = text;
+      },
+      undefined,
+      "high",
+    );
 
     return parseSummaryResponse(responseText);
   } catch (error) {

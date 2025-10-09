@@ -131,7 +131,9 @@ export const getIngestionQueueForFrontend = async (
     (log.output as any)?.episodes?.length > 0
   ) {
     // For DOCUMENT type: get episode details and space information for all episodes
-    const episodeIds = (log.output as any)?.episodes;
+    const episodeIds = (log.output as any)?.episodes.map(
+      (e: any) => e.episodeUuid,
+    );
 
     // Fetch all episode details in parallel
     const episodeDetailsPromises = episodeIds.map((episodeId: string) =>

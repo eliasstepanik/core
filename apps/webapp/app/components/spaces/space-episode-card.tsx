@@ -4,6 +4,7 @@ import type { StatementNode } from "@core/types";
 import { cn } from "~/lib/utils";
 import { useNavigate } from "@remix-run/react";
 import Markdown from "react-markdown";
+import { StyledMarkdown } from "../common/styled-markdown";
 
 export interface Episode {
   uuid: string;
@@ -54,7 +55,7 @@ export function SpaceEpisodeCard({ episode }: SpaceFactCardProps) {
           >
             <div className="flex w-full items-center justify-between gap-4">
               <div className="inline-flex min-h-[24px] min-w-[0px] shrink items-center justify-start">
-                <Markdown>{displayText}</Markdown>
+                <StyledMarkdown>{displayText.slice(0, 300)}</StyledMarkdown>
               </div>
               <div className="text-muted-foreground flex shrink-0 items-center justify-end gap-2 text-xs">
                 <Badge variant="secondary" className="rounded text-xs">

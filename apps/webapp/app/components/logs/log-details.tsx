@@ -9,6 +9,7 @@ import { cn, formatString } from "~/lib/utils";
 import { getStatusColor } from "./utils";
 import { format } from "date-fns";
 import { SpaceDropdown } from "../spaces/space-dropdown";
+import { StyledMarkdown } from "../common/styled-markdown";
 
 interface LogDetailsProps {
   log: LogItem;
@@ -214,7 +215,7 @@ export function LogDetails({ log }: LogDetailsProps) {
             {/* Log Content */}
             <div className="mb-4 w-full break-words whitespace-pre-wrap">
               <div className="rounded-md">
-                <Markdown>{log.ingestText}</Markdown>
+                <StyledMarkdown>{log.ingestText}</StyledMarkdown>
               </div>
             </div>
           </div>
@@ -254,7 +255,7 @@ export function LogDetails({ log }: LogDetailsProps) {
                       Content
                     </div>
                     <div className="text-sm break-words whitespace-pre-wrap">
-                      <Markdown>{episode.content}</Markdown>
+                      <StyledMarkdown>{episode.content}</StyledMarkdown>
                     </div>
                   </div>
                 </div>
