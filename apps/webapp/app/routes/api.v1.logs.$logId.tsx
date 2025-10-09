@@ -24,8 +24,11 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
     allowJWT: true,
   },
-  async ({ params }) => {
-    const formattedLog = await getIngestionQueueForFrontend(params.logId);
+  async ({ params, authentication }) => {
+    const formattedLog = await getIngestionQueueForFrontend(
+      params.logId,
+      authentication.userId,
+    );
 
     return json({ log: formattedLog });
   },

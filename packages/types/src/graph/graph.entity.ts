@@ -39,6 +39,7 @@ export interface EpisodicNode {
   sessionId?: string;
   recallCount?: number;
   chunkIndex?: number; // Index of this chunk within the document
+  spaceIds?: string[];
 }
 
 /**

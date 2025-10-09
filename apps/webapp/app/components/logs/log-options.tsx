@@ -41,7 +41,6 @@ export const LogOptions = ({ id }: LogOptionsProps) => {
   };
 
   useEffect(() => {
-    console.log(deleteFetcher.state, deleteFetcher.data);
     if (deleteFetcher.state === "idle" && deleteFetcher.data?.success) {
       navigate(`/home/inbox`);
     }

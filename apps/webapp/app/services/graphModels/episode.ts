@@ -1,5 +1,9 @@
 import { runQuery } from "~/lib/neo4j.server";
-import { type StatementNode, type EntityNode, type EpisodicNode } from "@core/types";
+import {
+  type StatementNode,
+  type EntityNode,
+  type EpisodicNode,
+} from "@core/types";
 
 export async function saveEpisode(episode: EpisodicNode): Promise<string> {
   const query = `
@@ -72,6 +76,8 @@ export async function getEpisode(uuid: string): Promise<EpisodicNode | null> {
     userId: episode.userId,
     space: episode.space,
     sessionId: episode.sessionId,
+    recallCount: episode.recallCount,
+    spaceIds: episode.spaceIds,
   };
 }
 
@@ -140,7 +146,7 @@ export async function searchEpisodesByEmbedding(params: {
 }) {
   const limit = params.limit || 100;
   const query = `
-  CALL db.index.vector.queryNodes('episode_embedding', ${limit*2}, $embedding)
+  CALL db.index.vector.queryNodes('episode_embedding', ${limit * 2}, $embedding)
   YIELD node AS episode
   WHERE episode.userId = $userId
   WITH episode, gds.similarity.cosine(episode.contentEmbedding, $embedding) AS score
@@ -285,7 +291,7 @@ export async function getRelatedEpisodesEntities(params: {
 }) {
   const limit = params.limit || 100;
   const query = `
-  CALL db.index.vector.queryNodes('episode_embedding', ${limit*2}, $embedding)
+  CALL db.index.vector.queryNodes('episode_embedding', ${limit * 2}, $embedding)
   YIELD node AS episode
   WHERE episode.userId = $userId
   WITH episode, gds.similarity.cosine(episode.contentEmbedding, $embedding) AS score

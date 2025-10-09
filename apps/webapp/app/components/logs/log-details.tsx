@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useFetcher } from "@remix-run/react";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, File, Loader2, MessageSquare } from "lucide-react";
 import { Badge, BadgeColor } from "../ui/badge";
 import { type LogItem } from "~/hooks/use-logs";
 import Markdown from "react-markdown";
@@ -8,6 +8,7 @@ import { getIconForAuthorise } from "../icon-utils";
 import { cn, formatString } from "~/lib/utils";
 import { getStatusColor } from "./utils";
 import { format } from "date-fns";
+import { SpaceDropdown } from "../spaces/space-dropdown";
 
 interface LogDetailsProps {
   log: LogItem;
@@ -33,13 +34,13 @@ function PropertyItem({
   if (!value) return null;
 
   return (
-    <div className="flex items-center py-1">
-      <span className="text-muted-foreground min-w-[160px]">{label}</span>
+    <div className="flex items-center py-1 !text-base">
+      <span className="text-muted-foreground min-w-[120px]">{label}</span>
 
       {variant === "status" ? (
         <Badge
           className={cn(
-            "!bg-grayAlpha-100 text-muted-foreground h-7 rounded px-4 text-xs",
+            "text-foreground h-7 items-center gap-2 rounded !bg-transparent px-4.5 !text-base",
             className,
           )}
         >
@@ -49,7 +50,13 @@ function PropertyItem({
           {value}
         </Badge>
       ) : (
-        <Badge variant={variant} className={cn("h-7 rounded px-4", className)}>
+        <Badge
+          variant={variant}
+          className={cn(
+            "h-7 items-center gap-2 rounded bg-transparent px-4 !text-base",
+            className,
+          )}
+        >
           {icon}
           {value}
         </Badge>
@@ -73,10 +80,10 @@ interface EpisodeFactsResponse {
 
 function getStatusValue(status: string) {
   if (status === "PENDING") {
-    return "In Queue";
+    return formatString("IN QUEUE");
   }
 
-  return status;
+  return formatString(status);
 }
 
 export function LogDetails({ log }: LogDetailsProps) {
@@ -113,6 +120,9 @@ export function LogDetails({ log }: LogDetailsProps) {
     } else if (log.episodeUUID) {
       setFactsLoading(true);
       fetcher.load(`/api/v1/episodes/${log.episodeUUID}/facts`);
+    } else {
+      setFacts([]);
+      setInvalidFacts([]);
     }
   }, [log.episodeUUID, log.data?.type, log.data?.episodes, facts.length]);
 
@@ -129,41 +139,8 @@ export function LogDetails({ log }: LogDetailsProps) {
   return (
     <div className="flex h-full w-full flex-col items-center overflow-auto">
       <div className="max-w-4xl">
-        <div className="px-4 pt-4">
-          <div className="mb-4 flex w-full items-center justify-between">
-            <span>Episode Details</span>
-          </div>
-        </div>
-
-        <div className="mb-10 px-4">
+        <div className="mt-5 mb-5 px-4">
           <div className="space-y-1">
-            {log.data?.type === "DOCUMENT" && log.data?.episodes ? (
-              <PropertyItem
-                label="Episodes"
-                value={
-                  <div className="flex flex-wrap gap-1">
-                    {log.data.episodes.map(
-                      (episodeId: string, index: number) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {episodeId}
-                        </Badge>
-                      ),
-                    )}
-                  </div>
-                }
-                variant="secondary"
-              />
-            ) : (
-              <PropertyItem
-                label="Episode Id"
-                value={log.episodeUUID}
-                variant="secondary"
-              />
-            )}
             <PropertyItem
               label="Session Id"
               value={log.data?.sessionId?.toLowerCase()}
@@ -174,6 +151,13 @@ export function LogDetails({ log }: LogDetailsProps) {
               value={formatString(
                 log.data?.type ? log.data.type.toLowerCase() : "conversation",
               )}
+              icon={
+                log.data?.type === "CONVERSATION" ? (
+                  <MessageSquare size={16} />
+                ) : (
+                  <File size={16} />
+                )
+              }
               variant="secondary"
             />
             <PropertyItem
@@ -192,15 +176,28 @@ export function LogDetails({ log }: LogDetailsProps) {
               variant="status"
               statusColor={log.status && getStatusColor(log.status)}
             />
+
+            {/* Space Assignment for CONVERSATION type */}
+            {log.data.type.toLowerCase() === "conversation" &&
+              log?.episodeUUID && (
+                <div className="mt-2 flex items-start py-1">
+                  <span className="text-muted-foreground min-w-[120px]">
+                    Spaces
+                  </span>
+
+                  <SpaceDropdown
+                    className="px-3"
+                    episodeIds={[log.episodeUUID]}
+                    selectedSpaceIds={log.spaceIds || []}
+                  />
+                </div>
+              )}
           </div>
         </div>
 
         {/* Error Details */}
         {log.error && (
           <div className="mb-6 px-4">
-            <div className="mb-2 flex w-full items-center justify-between">
-              <span>Error Details</span>
-            </div>
             <div className="bg-destructive/10 rounded-md p-3">
               <div className="flex items-start gap-2 text-red-600">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -212,21 +209,63 @@ export function LogDetails({ log }: LogDetailsProps) {
           </div>
         )}
 
-        <div className="flex flex-col items-center p-4 pt-0">
-          <div className="mb-2 flex w-full items-center justify-between">
-            <span>Content</span>
-          </div>
-          {/* Log Content */}
-          <div className="mb-4 w-full text-sm break-words whitespace-pre-wrap">
-            <div className="rounded-md">
-              <Markdown>{log.ingestText}</Markdown>
+        {log.data?.type === "CONVERSATION" && (
+          <div className="flex flex-col items-center p-4 pt-0">
+            {/* Log Content */}
+            <div className="mb-4 w-full break-words whitespace-pre-wrap">
+              <div className="rounded-md">
+                <Markdown>{log.ingestText}</Markdown>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Episodes List for DOCUMENT type */}
+        {log.data?.type === "DOCUMENT" && log.episodeDetails?.length > 0 && (
+          <div className="mb-6 px-4">
+            <div className="mb-2 flex w-full items-center justify-between font-medium">
+              <span>Episodes ({log.episodeDetails.length})</span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {log.episodeDetails.map((episode: any, index: number) => (
+                <div
+                  key={episode.uuid}
+                  className="bg-grayAlpha-100 flex flex-col gap-3 rounded-md p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="text-muted-foreground text-xs">
+                        Episode {index + 1}
+                      </span>
+                      <span className="truncate font-mono text-xs">
+                        {episode.uuid}
+                      </span>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <SpaceDropdown
+                        episodeIds={[episode.uuid]}
+                        selectedSpaceIds={episode.spaceIds || []}
+                      />
+                    </div>
+                  </div>
+                  {/* Episode Content */}
+                  <div className="border-grayAlpha-200 border-t pt-3">
+                    <div className="text-muted-foreground mb-1 text-xs">
+                      Content
+                    </div>
+                    <div className="text-sm break-words whitespace-pre-wrap">
+                      <Markdown>{episode.content}</Markdown>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Episode Facts */}
         <div className="mb-6 px-4">
-          <div className="mb-2 flex w-full items-center justify-between">
+          <div className="mb-2 flex w-full items-center justify-between font-medium">
             <span>Facts</span>
           </div>
           <div className="rounded-md">

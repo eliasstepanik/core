@@ -9,11 +9,11 @@ import { getIngestionQueueForFrontend } from "~/services/ingestionLogs.server";
 import { requireUserId } from "~/services/session.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireUserId(request);
+  const userId = await requireUserId(request);
   const logId = params.logId;
 
   try {
-    const log = await getIngestionQueueForFrontend(logId as string);
+    const log = await getIngestionQueueForFrontend(logId as string, userId);
     return json({ log: log });
   } catch (e) {
     return json({ log: null });

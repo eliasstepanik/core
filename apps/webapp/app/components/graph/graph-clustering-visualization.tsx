@@ -83,10 +83,14 @@ export const GraphClusteringVisualization = forwardRef<
         filtered = filtered.filter((triplet) => {
           const sourceMatches =
             isEpisodeNode(triplet.sourceNode) &&
-            triplet.sourceNode.attributes?.content?.toLowerCase().includes(query);
+            triplet.sourceNode.attributes?.content
+              ?.toLowerCase()
+              .includes(query);
           const targetMatches =
             isEpisodeNode(triplet.targetNode) &&
-            triplet.targetNode.attributes?.content?.toLowerCase().includes(query);
+            triplet.targetNode.attributes?.content
+              ?.toLowerCase()
+              .includes(query);
 
           return sourceMatches || targetMatches;
         });

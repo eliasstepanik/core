@@ -157,8 +157,12 @@ export async function deleteSpace(
       RETURN count(s) as updatedStatements
     `;
 
-    const cleanupStatementsResult = await runQuery(cleanupStatementsQuery, { userId, spaceId });
-    const updatedStatements = cleanupStatementsResult[0]?.get("updatedStatements") || 0;
+    const cleanupStatementsResult = await runQuery(cleanupStatementsQuery, {
+      userId,
+      spaceId,
+    });
+    const updatedStatements =
+      cleanupStatementsResult[0]?.get("updatedStatements") || 0;
 
     // 3. Clean up episode references (remove spaceId from spaceIds arrays)
     const cleanupEpisodesQuery = `
@@ -168,8 +172,12 @@ export async function deleteSpace(
       RETURN count(e) as updatedEpisodes
     `;
 
-    const cleanupEpisodesResult = await runQuery(cleanupEpisodesQuery, { userId, spaceId });
-    const updatedEpisodes = cleanupEpisodesResult[0]?.get("updatedEpisodes") || 0;
+    const cleanupEpisodesResult = await runQuery(cleanupEpisodesQuery, {
+      userId,
+      spaceId,
+    });
+    const updatedEpisodes =
+      cleanupEpisodesResult[0]?.get("updatedEpisodes") || 0;
 
     // 4. Delete the space node and all its relationships
     const deleteQuery = `
@@ -197,166 +205,6 @@ export async function deleteSpace(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-/**
- * Assign statements to a space
- */
-export async function assignStatementsToSpace(
-  statementIds: string[],
-  spaceId: string,
-  userId: string,
-): Promise<SpaceAssignmentResult> {
-  try {
-    // Verify space exists and belongs to user
-    const space = await getSpace(spaceId, userId);
-    if (!space) {
-      return {
-        success: false,
-        statementsUpdated: 0,
-        error: "Space not found or access denied",
-      };
-    }
-
-    const query = `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.uuid IN $statementIds
-      SET s.spaceIds = CASE 
-        WHEN s.spaceIds IS NULL THEN [$spaceId]
-        WHEN $spaceId IN s.spaceIds THEN s.spaceIds
-        ELSE s.spaceIds + [$spaceId]
-      END,
-      s.lastSpaceAssignment = datetime(),
-      s.spaceAssignmentMethod = CASE 
-        WHEN s.spaceAssignmentMethod IS NULL THEN 'manual'
-        ELSE s.spaceAssignmentMethod
-      END
-      RETURN count(s) as updated
-    `;
-
-    const result = await runQuery(query, { statementIds, spaceId, userId });
-    const updatedCount = result[0]?.get("updated") || 0;
-
-    return {
-      success: true,
-      statementsUpdated: Number(updatedCount),
-    };
-  } catch (error) {
-    return {
-      success: false,
-      statementsUpdated: 0,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-/**
- * Remove statements from a space
- */
-export async function removeStatementsFromSpace(
-  statementIds: string[],
-  spaceId: string,
-  userId: string,
-): Promise<SpaceAssignmentResult> {
-  try {
-    const query = `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.uuid IN $statementIds AND s.spaceIds IS NOT NULL AND $spaceId IN s.spaceIds
-      SET s.spaceIds = [id IN s.spaceIds WHERE id <> $spaceId]
-      RETURN count(s) as updated
-    `;
-
-    const result = await runQuery(query, { statementIds, spaceId, userId });
-    const updatedCount = result[0]?.get("updated") || 0;
-
-    return {
-      success: true,
-      statementsUpdated: Number(updatedCount),
-    };
-  } catch (error) {
-    return {
-      success: false,
-      statementsUpdated: 0,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-/**
- * Get all statements in a space
- */
-export async function getSpaceStatements(spaceId: string, userId: string) {
-  const query = `
-    MATCH (s:Statement {userId: $userId})
-    WHERE s.spaceIds IS NOT NULL AND $spaceId IN s.spaceIds AND s.invalidAt IS NULL
-    MATCH (s)-[:HAS_SUBJECT]->(subj:Entity)
-    MATCH (s)-[:HAS_PREDICATE]->(pred:Entity)
-    MATCH (s)-[:HAS_OBJECT]->(obj:Entity)
-    RETURN s, subj.name as subject, pred.name as predicate, obj.name as object
-    ORDER BY s.createdAt DESC
-  `;
-
-  const result = await runQuery(query, { spaceId, userId });
-
-  return result.map((record) => {
-    const statement = record.get("s").properties;
-    return {
-      uuid: statement.uuid,
-      fact: statement.fact,
-      subject: record.get("subject"),
-      predicate: record.get("predicate"),
-      object: record.get("object"),
-      createdAt: new Date(statement.createdAt),
-      validAt: new Date(statement.validAt),
-      invalidAt: statement.invalidAt
-        ? new Date(statement.invalidAt)
-        : undefined,
-      spaceIds: statement.spaceIds || [],
-      recallCount: statement.recallCount,
-    };
-  });
-}
-
-/**
- * Get real-time statement count for a space from Neo4j
- */
-export async function getSpaceStatementCount(
-  spaceId: string,
-  userId: string,
-): Promise<number> {
-  const query = `
-    MATCH (s:Statement {userId: $userId})
-    WHERE s.spaceIds IS NOT NULL 
-      AND $spaceId IN s.spaceIds 
-    RETURN count(s) as statementCount
-  `;
-
-  const result = await runQuery(query, { spaceId, userId });
-  return Number(result[0]?.get("statementCount") || 0);
-}
-
-/**
- * Initialize spaceIds array for existing statements (migration helper)
- */
-export async function initializeStatementSpaceIds(
-  userId?: string,
-): Promise<number> {
-  const query = userId
-    ? `
-      MATCH (s:Statement {userId: $userId})
-      WHERE s.spaceIds IS NULL
-      SET s.spaceIds = []
-      RETURN count(s) as updated
-    `
-    : `
-      MATCH (s:Statement)
-      WHERE s.spaceIds IS NULL
-      SET s.spaceIds = []
-      RETURN count(s) as updated
-    `;
-
-  const result = await runQuery(query, userId ? { userId } : {});
-  return Number(result[0]?.get("updated") || 0);
 }
 
 /**
@@ -507,4 +355,37 @@ export async function getSpaceEpisodeCount(
 
   const result = await runQuery(query, { spaceId, userId });
   return Number(result[0]?.get("episodeCount") || 0);
+}
+
+/**
+ * Get spaces for specific episodes
+ */
+export async function getSpacesForEpisodes(
+  episodeIds: string[],
+  userId: string,
+): Promise<Record<string, string[]>> {
+  const query = `
+    UNWIND $episodeIds as episodeId
+    MATCH (e:Episode {uuid: episodeId, userId: $userId})
+    WHERE e.spaceIds IS NOT NULL AND size(e.spaceIds) > 0
+    RETURN episodeId, e.spaceIds as spaceIds
+  `;
+
+  const result = await runQuery(query, { episodeIds, userId });
+
+  const spacesMap: Record<string, string[]> = {};
+
+  // Initialize all episodes with empty arrays
+  episodeIds.forEach((id) => {
+    spacesMap[id] = [];
+  });
+
+  // Fill in the spaceIds for episodes that have them
+  result.forEach((record) => {
+    const episodeId = record.get("episodeId");
+    const spaceIds = record.get("spaceIds");
+    spacesMap[episodeId] = spaceIds || [];
+  });
+
+  return spacesMap;
 }

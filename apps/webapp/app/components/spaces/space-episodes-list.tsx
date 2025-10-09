@@ -9,25 +9,24 @@ import {
 } from "react-virtualized";
 import { Database } from "lucide-react";
 import { Card, CardContent } from "~/components/ui/card";
-import type { StatementNode } from "@core/types";
 import { ScrollManagedList } from "../virtualized-list";
-import { SpaceFactCard } from "./space-fact-card";
+import { type Episode, SpaceEpisodeCard } from "./space-episode-card";
 
-interface SpaceFactsListProps {
-  facts: any[];
+interface SpaceEpisodesListProps {
+  episodes: any[];
   hasMore: boolean;
   loadMore: () => void;
   isLoading: boolean;
   height?: number;
 }
 
-function FactItemRenderer(
+function EpisodeItemRenderer(
   props: ListRowProps,
-  facts: StatementNode[],
+  episodes: Episode[],
   cache: CellMeasurerCache,
 ) {
   const { index, key, style, parent } = props;
-  const fact = facts[index];
+  const episode = episodes[index];
 
   return (
     <CellMeasurer
@@ -38,23 +37,23 @@ function FactItemRenderer(
       rowIndex={index}
     >
       <div key={key} style={style} className="pb-2">
-        <SpaceFactCard fact={fact} />
+        <SpaceEpisodeCard episode={episode} />
       </div>
     </CellMeasurer>
   );
 }
 
-export function SpaceFactsList({
-  facts,
+export function SpaceEpisodesList({
+  episodes,
   hasMore,
   loadMore,
   isLoading,
-}: SpaceFactsListProps) {
+}: SpaceEpisodesListProps) {
   // Create a CellMeasurerCache instance using useRef to prevent recreation
   const cacheRef = useRef<CellMeasurerCache | null>(null);
   if (!cacheRef.current) {
     cacheRef.current = new CellMeasurerCache({
-      defaultHeight: 200, // Default row height for fact cards
+      defaultHeight: 200, // Default row height for episode cards
       fixedWidth: true, // Rows have fixed width but dynamic height
     });
   }
@@ -62,17 +61,17 @@ export function SpaceFactsList({
 
   useEffect(() => {
     cache.clearAll();
-  }, [facts, cache]);
+  }, [episodes, cache]);
 
-  if (facts.length === 0 && !isLoading) {
+  if (episodes.length === 0 && !isLoading) {
     return (
       <Card className="bg-background-2 w-full">
         <CardContent className="bg-background-2 flex w-full items-center justify-center py-16">
           <div className="text-center">
             <Database className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-            <h3 className="mb-2 text-lg font-semibold">No facts found</h3>
+            <h3 className="mb-2 text-lg font-semibold">No Episodes found</h3>
             <p className="text-muted-foreground">
-              This space doesn't contain any facts yet.
+              This space doesn't contain any episodes yet.
             </p>
           </div>
         </CardContent>
@@ -81,7 +80,7 @@ export function SpaceFactsList({
   }
 
   const isRowLoaded = ({ index }: { index: number }) => {
-    return !!facts[index];
+    return !!episodes[index];
   };
 
   const loadMoreRows = async () => {
@@ -92,14 +91,14 @@ export function SpaceFactsList({
   };
 
   const rowRenderer = (props: ListRowProps) => {
-    return FactItemRenderer(props, facts, cache);
+    return EpisodeItemRenderer(props, episodes, cache);
   };
 
   const rowHeight = ({ index }: Index) => {
     return cache.getHeight(index, 0);
   };
 
-  const itemCount = hasMore ? facts.length + 1 : facts.length;
+  const itemCount = hasMore ? episodes.length + 1 : episodes.length;
 
   return (
     <div className="h-full grow overflow-hidden rounded-lg">
@@ -131,7 +130,7 @@ export function SpaceFactsList({
 
       {isLoading && (
         <div className="text-muted-foreground p-4 text-center text-sm">
-          Loading more facts...
+          Loading more episodes...
         </div>
       )}
     </div>

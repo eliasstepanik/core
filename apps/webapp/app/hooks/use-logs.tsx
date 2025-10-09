@@ -15,6 +15,8 @@ export interface LogItem {
   activityId?: string;
   episodeUUID?: string;
   data?: any;
+  spaceIds?: string[];
+  episodeDetails?: any;
 }
 
 export interface LogsResponse {

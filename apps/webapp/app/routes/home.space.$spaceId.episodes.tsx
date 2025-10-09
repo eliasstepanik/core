@@ -3,11 +3,13 @@ import { type LoaderFunctionArgs } from "@remix-run/server-runtime";
 import { useLoaderData } from "@remix-run/react";
 import { requireUserId } from "~/services/session.server";
 import { SpaceService } from "~/services/space.server";
-import { SpaceFactsFilters } from "~/components/spaces/space-facts-filters";
-import { SpaceFactsList } from "~/components/spaces/space-facts-list";
+import { SpaceEpisodesFilters } from "~/components/spaces/space-episode-filters";
+import { SpaceEpisodesList } from "~/components/spaces/space-episodes-list";
 
 import { ClientOnly } from "remix-utils/client-only";
 import { LoaderCircle } from "lucide-react";
+import { getLogByEpisode } from "~/services/ingestionLogs.server";
+import { Button } from "~/components/ui";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
@@ -15,16 +17,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const spaceId = params.spaceId as string;
   const space = await spaceService.getSpace(spaceId, userId);
-  const statements = await spaceService.getSpaceStatements(spaceId, userId);
+  const episodes = await spaceService.getSpaceEpisodes(spaceId, userId);
+
+  const episodesWithLogData = await Promise.all(
+    episodes.map(async (ep) => {
+      const log = await getLogByEpisode(ep.uuid);
+
+      return {
+        ...ep,
+        logId: log?.id,
+      };
+    }),
+  );
 
   return {
     space,
-    statements: statements || [],
+    episodes: episodesWithLogData || [],
   };
 }
 
-export default function Facts() {
-  const { statements } = useLoaderData<typeof loader>();
+export default function Episodes() {
+  const { episodes } = useLoaderData<typeof loader>();
   const [selectedValidDate, setSelectedValidDate] = useState<
     string | undefined
   >();
@@ -32,42 +45,27 @@ export default function Facts() {
     string | undefined
   >();
 
-  // Filter statements based on selected filters
-  const filteredStatements = statements.filter((statement) => {
+  // Filter episodes based on selected filters
+  const filteredEpisodes = episodes.filter((episode) => {
     // Date filter
     if (selectedValidDate) {
       const now = new Date();
-      const statementDate = new Date(statement.validAt);
+      const episodeDate = new Date(episode.createdAt);
 
       switch (selectedValidDate) {
         case "last_week":
           const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (statementDate < weekAgo) return false;
+          if (episodeDate < weekAgo) return false;
           break;
         case "last_month":
           const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          if (statementDate < monthAgo) return false;
+          if (episodeDate < monthAgo) return false;
           break;
         case "last_6_months":
           const sixMonthsAgo = new Date(
             now.getTime() - 180 * 24 * 60 * 60 * 1000,
           );
-          if (statementDate < sixMonthsAgo) return false;
-          break;
-      }
-    }
-
-    // Status filter
-    if (selectedSpaceFilter) {
-      switch (selectedSpaceFilter) {
-        case "active":
-          if (statement.invalidAt) return false;
-          break;
-        case "archived":
-          if (!statement.invalidAt) return false;
-          break;
-        case "all":
-        default:
+          if (episodeDate < sixMonthsAgo) return false;
           break;
       }
     }
@@ -81,20 +79,22 @@ export default function Facts() {
 
   return (
     <div className="flex h-full w-full flex-col pt-5">
-      <SpaceFactsFilters
-        selectedValidDate={selectedValidDate}
-        selectedSpaceFilter={selectedSpaceFilter}
-        onValidDateChange={setSelectedValidDate}
-        onSpaceFilterChange={setSelectedSpaceFilter}
-      />
+      <div className="mb-2 flex w-full items-center justify-start gap-2 px-5">
+        <SpaceEpisodesFilters
+          selectedValidDate={selectedValidDate}
+          selectedSpaceFilter={selectedSpaceFilter}
+          onValidDateChange={setSelectedValidDate}
+          onSpaceFilterChange={setSelectedSpaceFilter}
+        />
+      </div>
 
       <div className="flex h-[calc(100vh_-_56px)] w-full">
         <ClientOnly
           fallback={<LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
         >
           {() => (
-            <SpaceFactsList
-              facts={filteredStatements}
+            <SpaceEpisodesList
+              episodes={filteredEpisodes}
               hasMore={false} // TODO: Implement real pagination
               loadMore={loadMore}
               isLoading={false}

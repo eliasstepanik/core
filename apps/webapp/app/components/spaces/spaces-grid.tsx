@@ -9,8 +9,8 @@ interface SpacesGridProps {
     createdAt: string;
     updatedAt: string;
     autoMode: boolean;
-    statementCount: number | null;
     summary: string | null;
+    contextCount?: number | null;
     themes?: string[];
   }>;
 }

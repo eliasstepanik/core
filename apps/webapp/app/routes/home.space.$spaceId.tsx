@@ -7,6 +7,9 @@ import { useTypedLoaderData } from "remix-typedjson";
 import { Outlet, useLocation, useNavigate } from "@remix-run/react";
 import { SpaceOptions } from "~/components/spaces/space-options";
 import { LoaderCircle } from "lucide-react";
+import { Button } from "~/components/ui";
+import React from "react";
+import { AddMemoryDialog } from "~/components/command-bar/memory-dialog.client";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const userId = await requireUserId(request);
@@ -23,6 +26,7 @@ export default function Space() {
   const space = useTypedLoaderData<typeof loader>();
   const location = useLocation();
   const navigate = useNavigate();
+  const [showAddMemory, setShowAddMemory] = React.useState(false);
 
   return (
     <>
@@ -46,16 +50,10 @@ export default function Space() {
             onClick: () => navigate(`/home/space/${space.id}/overview`),
           },
           {
-            label: "Facts",
-            value: "facts",
-            isActive: location.pathname.includes("/facts"),
-            onClick: () => navigate(`/home/space/${space.id}/facts`),
-          },
-          {
-            label: "Patterns",
-            value: "patterns",
-            isActive: location.pathname.includes("/patterns"),
-            onClick: () => navigate(`/home/space/${space.id}/patterns`),
+            label: "Episodes",
+            value: "edpisodes",
+            isActive: location.pathname.includes("/episodes"),
+            onClick: () => navigate(`/home/space/${space.id}/episodes`),
           },
         ]}
         actionsNode={
@@ -67,17 +65,33 @@ export default function Space() {
             }
           >
             {() => (
-              <SpaceOptions
-                id={space.id as string}
-                name={space.name}
-                description={space.description}
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddMemory(true)}
+                >
+                  Add episode
+                </Button>
+                <SpaceOptions
+                  id={space.id as string}
+                  name={space.name}
+                  description={space.description}
+                />
+              </div>
             )}
           </ClientOnly>
         }
       />
       <div className="relative flex h-[calc(100vh_-_56px)] w-full flex-col items-center justify-start overflow-auto">
         <Outlet />
+
+        {showAddMemory && (
+          <AddMemoryDialog
+            open={showAddMemory}
+            onOpenChange={setShowAddMemory}
+            defaultSpaceId={space.id}
+          />
+        )}
       </div>
     </>
   );

@@ -4,6 +4,7 @@ import { type LogItem } from "~/hooks/use-logs";
 import { getIconForAuthorise } from "../icon-utils";
 import { useNavigate, useParams } from "@remix-run/react";
 import { getStatusColor, getStatusValue } from "./utils";
+import { File, MessageSquare } from "lucide-react";
 
 interface LogTextCollapseProps {
   text?: string;
@@ -49,9 +50,13 @@ export function LogTextCollapse({ text, log }: LogTextCollapseProps) {
   };
 
   const getIngestType = (log: LogItem) => {
-    const type = log.type ?? log.data.type ?? "Conversation";
+    const type = log.type ?? log.data.type ?? "CONVERSATION";
 
-    return type[0].toUpperCase();
+    return type === "CONVERSATION" ? (
+      <MessageSquare size={14} />
+    ) : (
+      <File size={14} />
+    );
   };
 
   return (
@@ -100,7 +105,7 @@ export function LogTextCollapse({ text, log }: LogTextCollapseProps) {
             <div className="flex items-center gap-1">
               <Badge
                 className={cn(
-                  "!bg-grayAlpha-100 text-muted-foreground rounded text-xs",
+                  "text-muted-foreground rounded !bg-transparent text-xs",
                 )}
               >
                 {getIngestType(log)}

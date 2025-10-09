@@ -2,7 +2,6 @@ import type { Prisma, User } from "@core/database";
 import type { GoogleProfile } from "@coji/remix-auth-google";
 import { prisma } from "~/db.server";
 import { env } from "~/env.server";
-import { ensureBillingInitialized } from "~/services/billing.server";
 export type { User } from "@core/database";
 
 type FindOrCreateMagicLink = {
@@ -167,7 +166,12 @@ export async function findOrCreateGoogleUser({
 }
 
 export async function getUserById(id: User["id"]) {
-  const user = await prisma.user.findUnique({ where: { id } });
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      Workspace: true,
+    },
+  });
 
   if (!user) {
     return null;
