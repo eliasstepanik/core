@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk/v3";
+import { queue, task } from "@trigger.dev/sdk/v3";
 import { logger } from "~/services/logger.service";
 import { SpaceService } from "~/services/space.server";
 import { makeModelCall } from "~/lib/model.server";
@@ -75,8 +75,14 @@ const AssignmentResultSchema = z.array(
   }),
 );
 
+const spaceAssignmentQueue = queue({
+  name: "space-assignment-queue",
+  concurrencyLimit: 1,
+});
+
 export const spaceAssignmentTask = task({
   id: "space-assignment",
+  queue: spaceAssignmentQueue,
   maxDuration: 1800, // 15 minutes timeout
   run: async (payload: SpaceAssignmentPayload) => {
     const {
@@ -704,9 +710,15 @@ async function processBatch(
 
     // Episode-intent matching is MEDIUM complexity (semantic analysis with intent alignment)
     let responseText = "";
-    await makeModelCall(false, prompt, (text: string) => {
-      responseText = text;
-    }, undefined, 'high');
+    await makeModelCall(
+      false,
+      prompt,
+      (text: string) => {
+        responseText = text;
+      },
+      undefined,
+      "high",
+    );
 
     // Response text is now set by the callback
 
@@ -1179,5 +1191,9 @@ function parseLLMResponse(
 
 // Helper function to trigger the task
 export async function triggerSpaceAssignment(payload: SpaceAssignmentPayload) {
-  return await spaceAssignmentTask.trigger(payload);
+  return await spaceAssignmentTask.trigger(payload, {
+    queue: "space-assignment-queue",
+    concurrencyKey: payload.userId,
+    tags: [payload.userId],
+  });
 }
