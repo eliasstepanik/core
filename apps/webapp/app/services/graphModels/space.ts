@@ -5,7 +5,6 @@ import {
   type SpaceAssignmentResult,
 } from "@core/types";
 import { logger } from "~/services/logger.service";
-import { prisma } from "~/trigger/utils/prisma";
 
 /**
  * Create a new space for a user

@@ -12,7 +12,6 @@ import {
   createSpace,
   deleteSpace,
   getSpace,
-  getSpaceEpisodeCount,
   getSpaceEpisodes,
   removeEpisodesFromSpace,
   updateSpace,
@@ -33,10 +32,6 @@ export class SpaceService {
 
     if (params.name.length > 100) {
       throw new Error("Space name too long (max 100 characters)");
-    }
-
-    if (params.description && params.description.length > 1000) {
-      throw new Error("Space description too long (max 1000 characters)");
     }
 
     // Check for duplicate names
