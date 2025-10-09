@@ -49,9 +49,12 @@ const IngestSchema = {
       type: "string",
       description: "The data to ingest in text format",
     },
-    spaceId: {
-      type: "string",
-      description: "Optional: UUID of the space to associate this memory with. If working on a specific project, provide the space ID to organize the memory in that project's context.",
+    spaceIds: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "Optional: Array of space UUIDs to associate this memory with. If working on specific projects, provide space IDs to organize the memory in those project contexts. The episode will be assigned to all specified spaces.",
     },
   },
   required: ["message"],
@@ -244,7 +247,7 @@ async function handleMemoryIngest(args: any) {
         referenceTime: new Date().toISOString(),
         source: args.source,
         type: EpisodeTypeEnum.CONVERSATION,
-        spaceId: args.spaceId,
+        spaceIds: args.spaceIds,
       },
       args.userId,
     );

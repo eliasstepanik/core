@@ -16,7 +16,7 @@ export const IngestBodyRequest = z.object({
   referenceTime: z.string(),
   metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   source: z.string(),
-  spaceId: z.string().optional(),
+  spaceIds: z.array(z.string()).optional(),
   sessionId: z.string().optional(),
   type: z
     .enum([EpisodeType.CONVERSATION, EpisodeType.DOCUMENT])
@@ -151,25 +151,28 @@ export const ingestTask = task({
 
       // Handle space assignment after successful ingestion
       try {
-        // If spaceId was explicitly provided, immediately assign the episode to that space
-        if (episodeBody.spaceId && episodeDetails.episodeUuid) {
-          logger.info(`Assigning episode to explicitly provided space`, {
+        // If spaceIds were explicitly provided, immediately assign the episode to those spaces
+        if (episodeBody.spaceIds && episodeBody.spaceIds.length > 0 && episodeDetails.episodeUuid) {
+          logger.info(`Assigning episode to explicitly provided spaces`, {
             userId: payload.userId,
             episodeId: episodeDetails.episodeUuid,
-            spaceId: episodeBody.spaceId,
+            spaceIds: episodeBody.spaceIds,
           });
 
-          await assignEpisodesToSpace(
-            [episodeDetails.episodeUuid],
-            episodeBody.spaceId,
-            payload.userId,
-          );
+          // Assign episode to each space
+          for (const spaceId of episodeBody.spaceIds) {
+            await assignEpisodesToSpace(
+              [episodeDetails.episodeUuid],
+              spaceId,
+              payload.userId,
+            );
+          }
 
           logger.info(
-            `Skipping LLM space assignment - episode explicitly assigned to space ${episodeBody.spaceId}`,
+            `Skipping LLM space assignment - episode explicitly assigned to ${episodeBody.spaceIds.length} space(s)`,
           );
         } else {
-          // Only trigger automatic LLM space assignment if no explicit spaceId was provided
+          // Only trigger automatic LLM space assignment if no explicit spaceIds were provided
           logger.info(
             `Triggering LLM space assignment after successful ingestion`,
             {

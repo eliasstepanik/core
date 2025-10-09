@@ -29,7 +29,6 @@ export const addToQueue = async (
 
   const queuePersist = await prisma.ingestionQueue.create({
     data: {
-      spaceId: body.spaceId ? body.spaceId : null,
       data: body,
       type: body.type,
       status: IngestionStatus.PENDING,
