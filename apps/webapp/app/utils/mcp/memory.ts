@@ -14,29 +14,29 @@ const SearchParamsSchema = {
   properties: {
     query: {
       type: "string",
-      description: "The search query in third person perspective",
+      description: "Search query as a simple statement or question. Write what you want to find, not a command. GOOD: 'user preferences for code style' or 'previous bugs in authentication' or 'GitHub integration setup'. BAD: 'search for' or 'find me' or 'get the'. Just state the topic directly.",
     },
     validAt: {
       type: "string",
       description:
-        "Point-in-time reference for temporal queries (ISO format). Returns facts valid at this timestamp. Defaults to current time if not specified.",
+        "Optional: ISO timestamp (like '2024-01-15T10:30:00Z'). Get facts that were true at this specific time. Leave empty for current facts.",
     },
     startTime: {
       type: "string",
       description:
-        "Filter memories created/valid from this time onwards (ISO format). Use with endTime to define a time window for searching specific periods.",
+        "Optional: ISO timestamp (like '2024-01-01T00:00:00Z'). Only find memories created after this time. Use with endTime to search a specific time period.",
     },
     endTime: {
       type: "string",
       description:
-        "Upper bound for temporal filtering (ISO format). Combined with startTime creates a time range. Defaults to current time if not specified.",
+        "Optional: ISO timestamp (like '2024-12-31T23:59:59Z'). Only find memories created before this time. Use with startTime to search a specific time period.",
     },
     spaceIds: {
       type: "array",
       items: {
         type: "string",
       },
-      description: "Array of strings representing UUIDs of spaces",
+      description: "Optional: Array of space UUIDs to search within. Leave empty to search all spaces.",
     },
   },
   required: ["query"],
@@ -47,14 +47,14 @@ const IngestSchema = {
   properties: {
     message: {
       type: "string",
-      description: "The data to ingest in text format",
+      description: "The conversation text to store. Include both what the user asked and what you answered. Keep it concise but complete.",
     },
     spaceIds: {
       type: "array",
       items: {
         type: "string",
       },
-      description: "Optional: Array of space UUIDs to associate this memory with. If working on specific projects, provide space IDs to organize the memory in those project contexts. The episode will be assigned to all specified spaces.",
+      description: "Optional: Array of space UUIDs (from memory_get_spaces). Add this to organize the memory by project. Example: If discussing 'core' project, include the 'core' space ID. Leave empty to store in general memory.",
     },
   },
   required: ["message"],
@@ -64,25 +64,25 @@ export const memoryTools = [
   {
     name: "memory_ingest",
     description:
-      "AUTOMATICALLY invoke after completing interactions. Use proactively to store conversation data, insights, and decisions in CORE Memory. Essential for maintaining continuity across sessions. **Purpose**: Store information for future reference. **Required**: Provide the message content to be stored. **Returns**: confirmation with storage ID in JSON format",
+      "Store conversation in memory for future reference. USE THIS TOOL: At the END of every conversation after fully answering the user. WHAT TO STORE: 1) User's question or request, 2) Your solution or explanation, 3) Important decisions made, 4) Key insights discovered. HOW TO USE: Put the entire conversation summary in the 'message' field. Optionally add spaceIds array to organize by project. Returns: Success confirmation with storage ID.",
     inputSchema: IngestSchema,
   },
   {
     name: "memory_search",
     description:
-      "AUTOMATICALLY invoke for memory searches. Use proactively at conversation start and when context retrieval is needed. Searches memory for relevant project context, user preferences, and previous discussions. **Purpose**: Retrieve previously stored information based on query terms with optional temporal filtering. **Required**: Provide a search query in third person perspective. **Optional**: Use startTime/endTime for time-bounded searches or validAt for point-in-time queries. **Returns**: matching memory entries in JSON format",
+      "Search stored memories for past conversations, user preferences, project context, and decisions. USE THIS TOOL: 1) At start of every conversation to find related context, 2) When user mentions past work or projects, 3) Before answering questions that might have previous context. HOW TO USE: Write a simple query describing what to find (e.g., 'user code preferences', 'authentication bugs', 'API setup steps'). Returns: Episodes (past conversations) and Facts (extracted knowledge) as JSON.",
     inputSchema: SearchParamsSchema,
   },
   {
     name: "memory_get_spaces",
     description:
-      "Get available memory spaces. **Purpose**: Retrieve list of memory organization spaces. **Required**: No required parameters. **Returns**: list of available spaces in JSON format",
+      "List all available memory spaces (project contexts). USE THIS TOOL: To see what spaces exist before searching or storing memories. Each space organizes memories by topic (e.g., 'Profile' for user info, 'GitHub' for GitHub work, project names for project-specific context). Returns: Array of spaces with id, name, and description.",
     inputSchema: {
       type: "object",
       properties: {
         all: {
           type: "boolean",
-          description: "Get all spaces",
+          description: "Set to true to get all spaces including system spaces. Leave empty for user spaces only.",
         },
       },
     },
@@ -90,13 +90,13 @@ export const memoryTools = [
   {
     name: "memory_about_user",
     description:
-      "Get information about the user. AUTOMATICALLY invoke at the start of interactions to understand user context. Returns the user's background, preferences, work, interests, and other personal information. **Required**: No required parameters. **Returns**: User information as text.",
+      "Get user's profile information (background, preferences, work, interests). USE THIS TOOL: At the start of conversations to understand who you're helping. This provides context about the user's technical preferences, work style, and personal details. Returns: User profile summary as text.",
     inputSchema: {
       type: "object",
       properties: {
         profile: {
           type: "boolean",
-          description: "Get user profile",
+          description: "Set to true to get full profile. Leave empty for default profile view.",
         },
       },
     },
@@ -104,17 +104,17 @@ export const memoryTools = [
   {
     name: "memory_get_space",
     description:
-      "Get a specific memory space by ID or name. **Purpose**: Retrieve detailed information about a space including its summary, description, and context. **Required**: Provide either spaceId or spaceName. **Returns**: Space details with summary in JSON format",
+      "Get detailed information about a specific space including its full summary. USE THIS TOOL: When working on a project to get comprehensive context about that project. The summary contains consolidated knowledge about the space topic. HOW TO USE: Provide either spaceName (like 'core', 'GitHub', 'Profile') OR spaceId (UUID). Returns: Space details with full summary, description, and metadata.",
     inputSchema: {
       type: "object",
       properties: {
         spaceId: {
           type: "string",
-          description: "UUID of the space to retrieve",
+          description: "UUID of the space (use this if you have the ID from memory_get_spaces)",
         },
         spaceName: {
           type: "string",
-          description: "Name of the space to retrieve (e.g., 'Profile', 'GitHub', 'Health')",
+          description: "Name of the space (easier option). Examples: 'core', 'Profile', 'GitHub', 'Health'",
         },
       },
     },
@@ -122,7 +122,7 @@ export const memoryTools = [
   {
     name: "get_integrations",
     description:
-      "Get list of connected integrations available for use. Returns integration metadata including name, slug, and whether they have MCP capabilities. Use this to discover what integrations you have access to (e.g., GitHub, Linear, Slack). **Required**: No required parameters. **Returns**: Array of available integrations in JSON format",
+      "List all connected integrations (GitHub, Linear, Slack, etc.). USE THIS TOOL: Before using integration actions to see what's available. WORKFLOW: 1) Call this to see available integrations, 2) Call get_integration_actions with a slug to see what you can do, 3) Call execute_integration_action to do it. Returns: Array with slug, name, accountId, and hasMcp for each integration.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -131,13 +131,13 @@ export const memoryTools = [
   {
     name: "get_integration_actions",
     description:
-      "Get available actions/tools for a specific integration. Use this after discovering integrations to see what operations you can perform (e.g., for GitHub: get_pr, get_issues, create_issue). **Required**: Provide integration slug. **Returns**: List of available tools/actions with their descriptions and input schemas in JSON format",
+      "Get list of actions available for a specific integration. USE THIS TOOL: After get_integrations to see what operations you can perform. For example, GitHub integration has actions like 'get_pr', 'get_issues', 'create_issue'. HOW TO USE: Provide the integrationSlug from get_integrations (like 'github', 'linear', 'slack'). Returns: Array of actions with name, description, and inputSchema for each.",
     inputSchema: {
       type: "object",
       properties: {
         integrationSlug: {
           type: "string",
-          description: "The slug of the integration (e.g., 'github', 'linear', 'slack')",
+          description: "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
         },
       },
       required: ["integrationSlug"],
@@ -146,21 +146,21 @@ export const memoryTools = [
   {
     name: "execute_integration_action",
     description:
-      "Execute a specific action on an integration. Use this to perform operations like fetching GitHub PRs, creating Linear issues, sending Slack messages, etc. **Required**: Provide integration slug and action name. **Optional**: Provide arguments for the action. **Returns**: Result of the action execution",
+      "Execute an action on an integration (fetch GitHub PR, create Linear issue, send Slack message, etc.). USE THIS TOOL: After using get_integration_actions to see available actions. HOW TO USE: 1) Set integrationSlug (like 'github'), 2) Set action name (like 'get_pr'), 3) Set arguments object with required parameters from the action's inputSchema. Returns: Result of the action execution.",
     inputSchema: {
       type: "object",
       properties: {
         integrationSlug: {
           type: "string",
-          description: "The slug of the integration (e.g., 'github', 'linear', 'slack')",
+          description: "Slug from get_integrations. Examples: 'github', 'linear', 'slack'",
         },
         action: {
           type: "string",
-          description: "The action/tool name (e.g., 'get_pr', 'get_issues', 'create_issue')",
+          description: "Action name from get_integration_actions. Examples: 'get_pr', 'get_issues', 'create_issue'",
         },
         arguments: {
           type: "object",
-          description: "Arguments to pass to the action (structure depends on the specific action)",
+          description: "Parameters for the action. Check the action's inputSchema from get_integration_actions to see what's required.",
         },
       },
       required: ["integrationSlug", "action"],
@@ -241,13 +241,16 @@ async function handleUserProfile(userId: string) {
 // Handler for memory_ingest
 async function handleMemoryIngest(args: any) {
   try {
+    // Use spaceIds from args if provided, otherwise use spaceId from query params
+    const spaceIds = args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+
     const response = await addToQueue(
       {
         episodeBody: args.message,
         referenceTime: new Date().toISOString(),
         source: args.source,
         type: EpisodeTypeEnum.CONVERSATION,
-        spaceIds: args.spaceIds,
+        spaceIds,
       },
       args.userId,
     );
@@ -280,12 +283,16 @@ async function handleMemoryIngest(args: any) {
 // Handler for memory_search
 async function handleMemorySearch(args: any) {
   try {
+    // Use spaceIds from args if provided, otherwise use spaceId from query params
+    const spaceIds = args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);
+
     const results = await searchService.search(
       args.query,
       args.userId,
       {
         startTime: args.startTime ? new Date(args.startTime) : undefined,
         endTime: args.endTime ? new Date(args.endTime) : undefined,
+        spaceIds,
       },
       args.source,
     );
