@@ -173,10 +173,7 @@ export default function Onboarding() {
       submit(formData, {
         method: "POST",
       });
-      setLoading(false);
-    } catch (e) {
-      setLoading(false);
-    }
+    } catch (e) {}
   };
 
   // Convert episode and statements structure to triplets for visualization
