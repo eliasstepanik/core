@@ -183,7 +183,7 @@ CORE takes security seriously. We implement industry-standard security practices
 - **Data Encryption**: All data in transit (TLS 1.3) and at rest (AES-256)
 - **Authentication**: OAuth 2.0 and magic link authentication
 - **Access Control**: Workspace-based isolation and role-based permissions
-- **Vulnerability Reporting**: Please report security issues to harshith@tegon.ai
+- **Vulnerability Reporting**: Please report security issues to harshith@poozle.dev
 
 For detailed security information, see our [Security Policy](SECURITY.md).
 
@@ -216,6 +216,7 @@ Have questions or feedback? We're here to help:
 <a href="https://github.com/RedPlanetHQ/core/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=RedPlanetHQ/core" />
 </a>
+
 
 
 
