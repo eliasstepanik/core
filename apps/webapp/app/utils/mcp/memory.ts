@@ -3,6 +3,7 @@ import { addToQueue } from "~/lib/ingest.server";
 import { logger } from "~/services/logger.service";
 import { SearchService } from "~/services/search.server";
 import { SpaceService } from "~/services/space.server";
+import { deepSearch } from "~/trigger/deep-search";
 import { IntegrationLoader } from "./integration-loader";
 
 const searchService = new SearchService();
@@ -178,6 +179,27 @@ export const memoryTools = [
       required: ["integrationSlug", "action"],
     },
   },
+  // {
+  //   name: "memory_deep_search",
+  //   description:
+  //     "Search CORE memory with document context and get synthesized insights. Automatically analyzes content to infer intent (reading, writing, meeting prep, research, task tracking, etc.) and provides context-aware synthesis. USE THIS TOOL: When analyzing documents, emails, notes, or any substantial text content for relevant memories. HOW TO USE: Provide the full content text. The tool will decompose it, search for relevant memories, and synthesize findings based on inferred intent. Returns: Synthesized context summary and related episodes.",
+  //   inputSchema: {
+  //     type: "object",
+  //     properties: {
+  //       content: {
+  //         type: "string",
+  //         description:
+  //           "Full document/text content to analyze and search against memory",
+  //       },
+  //       intentOverride: {
+  //         type: "string",
+  //         description:
+  //           "Optional: Explicitly specify intent (e.g., 'meeting preparation', 'blog writing') instead of auto-detection",
+  //       },
+  //     },
+  //     required: ["content"],
+  //   },
+  // },
 ];
 
 // Function to call memory tools based on toolName
@@ -205,6 +227,8 @@ export async function callMemoryTool(
         return await handleGetIntegrationActions({ ...args });
       case "execute_integration_action":
         return await handleExecuteIntegrationAction({ ...args });
+      case "memory_deep_search":
+        return await handleMemoryDeepSearch({ ...args, userId, source });
       default:
         throw new Error(`Unknown memory tool: ${toolName}`);
     }
@@ -540,6 +564,61 @@ async function handleExecuteIntegrationAction(args: any) {
         {
           type: "text",
           text: `Error executing integration action: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+// Handler for memory_deep_search
+async function handleMemoryDeepSearch(args: any) {
+  try {
+    const { content, intentOverride, userId, source } = args;
+
+    if (!content) {
+      throw new Error("content is required");
+    }
+
+    // Trigger non-streaming deep search task
+    const handle = await deepSearch.triggerAndWait({
+      content,
+      userId,
+      stream: false, // MCP doesn't need streaming
+      intentOverride,
+      metadata: { source },
+    });
+
+    // Wait for task completion
+    if (handle.ok) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(handle.output),
+          },
+        ],
+        isError: false,
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error performing deep search: ${handle.error instanceof Error ? handle.error.message : String(handle.error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  } catch (error) {
+    logger.error(`MCP deep search error: ${error}`);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error performing deep search: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
       isError: true,
