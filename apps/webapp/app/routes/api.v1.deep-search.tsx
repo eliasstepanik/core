@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { json } from "@remix-run/node";
 import { createActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
-import { DeepSearchService } from "~/services/deepSearch.server";
-import { SearchService } from "~/services/search.server";
+import { deepSearch } from "~/trigger/deep-search";
+import { runs } from "@trigger.dev/sdk";
 
 const DeepSearchBodySchema = z.object({
   content: z.string().min(1, "Content is required"),
   intentOverride: z.string().optional(),
+  stream: z.boolean().default(false),
   metadata: z
     .object({
       source: z.enum(["chrome", "obsidian", "mcp"]).optional(),
@@ -27,15 +28,36 @@ const { action, loader } = createActionApiRoute(
     corsStrategy: "all",
   },
   async ({ body, authentication }) => {
-    const searchService = new SearchService();
-    const deepSearchService = new DeepSearchService(searchService);
+    let trigger;
+    if (body.stream) {
+      trigger = await deepSearch.trigger({
+        content: body.content,
+        userId: authentication.userId,
+        stream: body.stream,
+        intentOverride: body.intentOverride,
+        metadata: body.metadata,
+      });
 
-    const result = await deepSearchService.deepSearch(
-      body,
-      authentication.userId
-    );
+      return json(trigger);
+    } else {
+      const runHandler = await deepSearch.trigger({
+        content: body.content,
+        userId: authentication.userId,
+        stream: body.stream,
+        intentOverride: body.intentOverride,
+        metadata: body.metadata,
+      });
 
-    return json(result);
+      for await (const run of runs.subscribeToRun(runHandler.id)) {
+        if (run.status === "COMPLETED") {
+          return json(run.output);
+        } else if (run.status === "FAILED") {
+          return json(run.error);
+        }
+      }
+
+      return json({ error: "Run failed" });
+    }
   }
 );
 

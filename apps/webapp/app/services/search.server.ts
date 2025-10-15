@@ -80,7 +80,7 @@ export class SearchService {
       opts,
     );
 
-    // // 3. Apply adaptive filtering based on score threshold and minimum count
+    // 3. Apply adaptive filtering based on score threshold and minimum count
     const filteredResults = this.applyAdaptiveFiltering(rankedStatements, opts);
 
     // 3. Return top results

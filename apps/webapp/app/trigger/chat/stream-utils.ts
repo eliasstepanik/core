@@ -59,9 +59,37 @@ export async function* processTag(
       const hasStartTag = chunk.includes(startTag);
       const hasClosingTag = chunk.includes("</");
 
+      // Check if we're currently accumulating a potential end tag
+      const accumulatingEndTag = state.message.endsWith("</") ||
+                                  state.message.match(/<\/[a-z_]*$/i);
+
       if (hasClosingTag && !hasStartTag && !hasEndTag) {
         // If chunk only has </ but not the full end tag, accumulate it
         state.message += chunk;
+      } else if (accumulatingEndTag) {
+        // Continue accumulating if we're in the middle of a potential end tag
+        state.message += chunk;
+        // Check if we now have the complete end tag
+        if (state.message.includes(endTag)) {
+          // Process the complete message with end tag
+          const endIndex = state.message.indexOf(endTag);
+          const finalMessage = state.message.slice(0, endIndex).trim();
+          const messageToSend = finalMessage.slice(
+            finalMessage.indexOf(state.lastSent) + state.lastSent.length,
+          );
+
+          if (messageToSend) {
+            yield Message(
+              messageToSend,
+              states.chunk as AgentMessageType,
+              extraParams,
+            );
+          }
+          yield Message("", states.end as AgentMessageType, extraParams);
+
+          state.message = finalMessage;
+          state.messageEnded = true;
+        }
       } else if (hasEndTag || (!hasEndTag && !hasClosingTag)) {
         let currentMessage = comingFromStart
           ? state.message

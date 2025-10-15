@@ -3,7 +3,7 @@ import { addToQueue } from "~/lib/ingest.server";
 import { logger } from "~/services/logger.service";
 import { SearchService } from "~/services/search.server";
 import { SpaceService } from "~/services/space.server";
-import { DeepSearchService } from "~/services/deepSearch.server";
+import { deepSearch } from "~/trigger/deep-search";
 import { IntegrationLoader } from "./integration-loader";
 
 const searchService = new SearchService();
@@ -580,26 +580,37 @@ async function handleMemoryDeepSearch(args: any) {
       throw new Error("content is required");
     }
 
-    const deepSearchService = new DeepSearchService(searchService);
-
-    const result = await deepSearchService.deepSearch(
-      {
-        content,
-        intentOverride,
-        metadata: { source },
-      },
+    // Trigger non-streaming deep search task
+    const handle = await deepSearch.triggerAndWait({
+      content,
       userId,
-    );
+      stream: false, // MCP doesn't need streaming
+      intentOverride,
+      metadata: { source },
+    });
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result),
-        },
-      ],
-      isError: false,
-    };
+    // Wait for task completion
+    if (handle.ok) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(handle.output),
+          },
+        ],
+        isError: false,
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error performing deep search: ${handle.error instanceof Error ? handle.error.message : String(handle.error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
   } catch (error) {
     logger.error(`MCP deep search error: ${error}`);
 
