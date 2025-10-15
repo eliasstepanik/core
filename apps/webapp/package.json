@@ -10,8 +10,8 @@
     "lint:fix": "eslint 'app/**/*.{ts,tsx,js,jsx}' --rule 'turbo/no-undeclared-env-vars:error' -f table",
     "start": "node server.js",
     "typecheck": "tsc",
-    "trigger:dev": "pnpm dlx trigger.dev@4.0.0-v4-beta.22 dev",
-    "trigger:deploy": "pnpm dlx trigger.dev@4.0.0-v4-beta.22 deploy"
+    "trigger:dev": "pnpm dlx trigger.dev@4.0.4 dev",
+    "trigger:deploy": "pnpm dlx trigger.dev@4.0.4 deploy"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "2.2.12",

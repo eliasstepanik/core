@@ -29,7 +29,7 @@ const { action, loader } = createActionApiRoute(
   },
   async ({ body, authentication }) => {
     let trigger;
-    if (body.stream) {
+    if (!body.stream) {
       trigger = await deepSearch.trigger({
         content: body.content,
         userId: authentication.userId,
@@ -58,7 +58,7 @@ const { action, loader } = createActionApiRoute(
 
       return json({ error: "Run failed" });
     }
-  }
+  },
 );
 
 export { action, loader };

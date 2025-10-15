@@ -179,27 +179,27 @@ export const memoryTools = [
       required: ["integrationSlug", "action"],
     },
   },
-  {
-    name: "memory_deep_search",
-    description:
-      "Search CORE memory with document context and get synthesized insights. Automatically analyzes content to infer intent (reading, writing, meeting prep, research, task tracking, etc.) and provides context-aware synthesis. USE THIS TOOL: When analyzing documents, emails, notes, or any substantial text content for relevant memories. HOW TO USE: Provide the full content text. The tool will decompose it, search for relevant memories, and synthesize findings based on inferred intent. Returns: Synthesized context summary and related episodes.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        content: {
-          type: "string",
-          description:
-            "Full document/text content to analyze and search against memory",
-        },
-        intentOverride: {
-          type: "string",
-          description:
-            "Optional: Explicitly specify intent (e.g., 'meeting preparation', 'blog writing') instead of auto-detection",
-        },
-      },
-      required: ["content"],
-    },
-  },
+  // {
+  //   name: "memory_deep_search",
+  //   description:
+  //     "Search CORE memory with document context and get synthesized insights. Automatically analyzes content to infer intent (reading, writing, meeting prep, research, task tracking, etc.) and provides context-aware synthesis. USE THIS TOOL: When analyzing documents, emails, notes, or any substantial text content for relevant memories. HOW TO USE: Provide the full content text. The tool will decompose it, search for relevant memories, and synthesize findings based on inferred intent. Returns: Synthesized context summary and related episodes.",
+  //   inputSchema: {
+  //     type: "object",
+  //     properties: {
+  //       content: {
+  //         type: "string",
+  //         description:
+  //           "Full document/text content to analyze and search against memory",
+  //       },
+  //       intentOverride: {
+  //         type: "string",
+  //         description:
+  //           "Optional: Explicitly specify intent (e.g., 'meeting preparation', 'blog writing') instead of auto-detection",
+  //       },
+  //     },
+  //     required: ["content"],
+  //   },
+  // },
 ];
 
 // Function to call memory tools based on toolName

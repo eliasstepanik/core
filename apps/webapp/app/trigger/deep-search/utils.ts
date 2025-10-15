@@ -11,7 +11,7 @@ export function createSearchMemoryTool(token: string) {
       query: z
         .string()
         .describe(
-          "Search query to find relevant information. Be specific: entity names, topics, concepts."
+          "Search query to find relevant information. Be specific: entity names, topics, concepts.",
         ),
     }),
     execute: async ({ query }) => {
@@ -23,7 +23,7 @@ export function createSearchMemoryTool(token: string) {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const searchResult = response.data;
@@ -57,9 +57,7 @@ export function extractEpisodesFromToolCalls(toolCalls: any[]): any[] {
 
   // Deduplicate by content + createdAt
   const uniqueEpisodes = Array.from(
-    new Map(
-      episodes.map((e) => [`${e.content}-${e.createdAt}`, e])
-    ).values()
+    new Map(episodes.map((e) => [`${e.content}-${e.createdAt}`, e])).values(),
   );
 
   return uniqueEpisodes.slice(0, 10);

@@ -16,13 +16,7 @@ export const deepSearch = task({
   id: "deep-search",
   maxDuration: 3000,
   run: async (payload: DeepSearchPayload): Promise<DeepSearchResponse> => {
-    const {
-      content,
-      userId,
-      stream,
-      metadata: meta,
-      intentOverride,
-    } = payload;
+    const { content, userId, stream, metadata: meta, intentOverride } = payload;
 
     const randomKeyName = `deepSearch_${nanoid(10)}`;
 
@@ -55,59 +49,33 @@ export const deepSearch = task({
       // Run the ReAct loop generator
       const llmResponse = run(initialMessages, searchTool);
 
-      if (stream) {
-        // Streaming mode: stream via metadata.stream like chat.ts does
-        // This makes all message types available to clients in real-time
-        const messageStream = await metadata.stream("messages", llmResponse);
+      // Streaming mode: stream via metadata.stream like chat.ts does
+      // This makes all message types available to clients in real-time
+      const messageStream = await metadata.stream("messages", llmResponse);
 
-        let synthesis = "";
+      let synthesis = "";
 
-        for await (const step of messageStream) {
-          // MESSAGE_CHUNK: Final synthesis - accumulate and stream
-          if (step.type === AgentMessageType.MESSAGE_CHUNK) {
-            synthesis += step.message;
-          }
-
-          // STREAM_END: Loop completed
-          if (step.type === AgentMessageType.STREAM_END) {
-            break;
-          }
+      for await (const step of messageStream) {
+        // MESSAGE_CHUNK: Final synthesis - accumulate and stream
+        if (step.type === AgentMessageType.MESSAGE_CHUNK) {
+          synthesis += step.message;
         }
 
-        await deletePersonalAccessToken(pat?.id);
-
-        // Clean up any remaining tags
-        synthesis = synthesis
-          .replace(/<final_response>/gi, "")
-          .replace(/<\/final_response>/gi, "")
-          .trim();
-
-        return { synthesis };
-      } else {
-        // Non-streaming mode: consume generator without streaming
-        let synthesis = "";
-
-        for await (const step of llmResponse) {
-          if (step.type === AgentMessageType.MESSAGE_CHUNK) {
-            synthesis += step.message;
-          }
-          // Could also collect episodes from tool results if needed
+        // STREAM_END: Loop completed
+        if (step.type === AgentMessageType.STREAM_END) {
+          break;
         }
-
-        await deletePersonalAccessToken(pat?.id);
-
-        // Clean up any remaining tags
-        synthesis = synthesis
-          .replace(/<final_response>/gi, "")
-          .replace(/<\/final_response>/gi, "")
-          .trim();
-
-        // For non-streaming, we need to get episodes from search results
-        // Since we don't have direct access to search results in this flow,
-        // we'll return synthesis without episodes for now
-        // (episodes can be extracted from tool results if needed)
-        return { synthesis };
       }
+
+      await deletePersonalAccessToken(pat?.id);
+
+      // Clean up any remaining tags
+      synthesis = synthesis
+        .replace(/<final_response>/gi, "")
+        .replace(/<\/final_response>/gi, "")
+        .trim();
+
+      return { synthesis };
     } catch (error) {
       await deletePersonalAccessToken(pat?.id);
       logger.error(`Deep search error: ${error}`);

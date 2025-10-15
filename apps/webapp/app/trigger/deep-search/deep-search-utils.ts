@@ -3,7 +3,7 @@ import { logger } from "@trigger.dev/sdk/v3";
 import { generate } from "./stream-utils";
 import { processTag } from "../chat/stream-utils";
 import { type AgentMessage, AgentMessageType, Message } from "../chat/types";
-import { TotalCost } from "../utils/types";
+import { type TotalCost } from "../utils/types";
 
 /**
  * Run the deep search ReAct loop
@@ -12,7 +12,7 @@ import { TotalCost } from "../utils/types";
  */
 export async function* run(
   initialMessages: CoreMessage[],
-  searchTool: any
+  searchTool: any,
 ): AsyncGenerator<AgentMessage, any, any> {
   let messages = [...initialMessages];
   let completed = false;
@@ -34,13 +34,20 @@ export async function* run(
 
   try {
     while (!completed && guardLoop < 50) {
-      logger.info(`ReAct loop iteration ${guardLoop}, searches: ${searchCount}`);
+      logger.info(
+        `ReAct loop iteration ${guardLoop}, searches: ${searchCount}`,
+      );
 
       // Call LLM with current message history
-      const response = generate(messages, (event)=>{const usage = event.usage;
-        totalCost.inputTokens += usage.promptTokens;
-        totalCost.outputTokens += usage.completionTokens;
-      }, tools);
+      const response = generate(
+        messages,
+        (event) => {
+          const usage = event.usage;
+          totalCost.inputTokens += usage.promptTokens;
+          totalCost.outputTokens += usage.completionTokens;
+        },
+        tools,
+      );
 
       let totalMessage = "";
       const toolCalls: any[] = [];
@@ -74,7 +81,7 @@ export async function* run(
                 start: AgentMessageType.MESSAGE_START,
                 chunk: AgentMessageType.MESSAGE_CHUNK,
                 end: AgentMessageType.MESSAGE_END,
-              }
+              },
             );
           }
         }
@@ -83,14 +90,14 @@ export async function* run(
       // Check for final response
       if (totalMessage.includes("<final_response>")) {
         const match = totalMessage.match(
-          /<final_response>(.*?)<\/final_response>/s
+          /<final_response>(.*?)<\/final_response>/s,
         );
 
         if (match) {
           // Accept synthesis - completed
           completed = true;
           logger.info(
-            `Final synthesis accepted after ${searchCount} searches, ${totalEpisodesFound} unique episodes found`
+            `Final synthesis accepted after ${searchCount} searches, ${totalEpisodesFound} unique episodes found`,
           );
           break;
         }
@@ -104,7 +111,7 @@ export async function* run(
           yield Message("", AgentMessageType.SKILL_START);
           yield Message(
             `\nSearching memory: "${toolCall.args.query}"...\n`,
-            AgentMessageType.SKILL_CHUNK
+            AgentMessageType.SKILL_CHUNK,
           );
           yield Message("", AgentMessageType.SKILL_END);
         }
@@ -114,7 +121,7 @@ export async function* run(
           searchTool.execute(toolCall.args).then((result: any) => ({
             toolCall,
             result,
-          }))
+          })),
         );
 
         const searchResults = await Promise.all(searchPromises);
@@ -165,20 +172,20 @@ export async function* run(
           });
 
           logger.info(
-            `Search ${searchCount} completed: ${episodesInThisSearch} episodes (${uniqueNewEpisodes} new, ${totalEpisodesFound} unique total)`
+            `Search ${searchCount} completed: ${episodesInThisSearch} episodes (${uniqueNewEpisodes} new, ${totalEpisodesFound} unique total)`,
           );
         }
 
         // If found no episodes and haven't exhausted search attempts, require more searches
         if (totalEpisodesFound === 0 && searchCount < 7) {
           logger.info(
-            `Agent attempted synthesis with 0 unique episodes after ${searchCount} searches - requiring more attempts`
+            `Agent attempted synthesis with 0 unique episodes after ${searchCount} searches - requiring more attempts`,
           );
 
           yield Message("", AgentMessageType.SKILL_START);
           yield Message(
             `No relevant context found yet - trying different search angles...`,
-            AgentMessageType.SKILL_CHUNK
+            AgentMessageType.SKILL_CHUNK,
           );
           yield Message("", AgentMessageType.SKILL_END);
 
@@ -202,7 +209,7 @@ Continue with different search strategies (you can search up to 7-10 times total
         // Soft nudging after all searches executed (awareness, not commands)
         if (totalEpisodesFound >= 30 && searchCount >= 3) {
           logger.info(
-            `Nudging: ${totalEpisodesFound} unique episodes found - suggesting synthesis consideration`
+            `Nudging: ${totalEpisodesFound} unique episodes found - suggesting synthesis consideration`,
           );
 
           messages.push({
@@ -211,7 +218,7 @@ Continue with different search strategies (you can search up to 7-10 times total
           });
         } else if (totalEpisodesFound >= 15 && searchCount >= 5) {
           logger.info(
-            `Nudging: ${totalEpisodesFound} unique episodes after ${searchCount} searches - suggesting evaluation`
+            `Nudging: ${totalEpisodesFound} unique episodes after ${searchCount} searches - suggesting evaluation`,
           );
 
           messages.push({
@@ -220,22 +227,23 @@ Continue with different search strategies (you can search up to 7-10 times total
           });
         } else if (searchCount >= 7) {
           logger.info(
-            `Nudging: ${searchCount} searches completed with ${totalEpisodesFound} unique episodes`
+            `Nudging: ${searchCount} searches completed with ${totalEpisodesFound} unique episodes`,
           );
 
           messages.push({
             role: "system",
             content: `Search depth: You have performed ${searchCount} searches and found ${totalEpisodesFound} unique episodes. Consider whether additional searches would yield meaningfully different context, or if it's time to synthesize what you've discovered.`,
           });
-        } if (searchCount >= 10) {
+        }
+        if (searchCount >= 10) {
           logger.info(
-            `Reached maximum search limit (10), forcing synthesis with ${totalEpisodesFound} unique episodes`
+            `Reached maximum search limit (10), forcing synthesis with ${totalEpisodesFound} unique episodes`,
           );
 
           yield Message("", AgentMessageType.SKILL_START);
           yield Message(
             `Maximum searches reached - synthesizing results...`,
-            AgentMessageType.SKILL_CHUNK
+            AgentMessageType.SKILL_CHUNK,
           );
           yield Message("", AgentMessageType.SKILL_END);
 
@@ -247,7 +255,10 @@ Continue with different search strategies (you can search up to 7-10 times total
       }
 
       // Safety check - if no tool calls and no final response, something went wrong
-      if (toolCalls.length === 0 && !totalMessage.includes("<final_response>")) {
+      if (
+        toolCalls.length === 0 &&
+        !totalMessage.includes("<final_response>")
+      ) {
         logger.warn("Agent produced neither tool calls nor final response");
 
         messages.push({
@@ -261,11 +272,13 @@ Continue with different search strategies (you can search up to 7-10 times total
     }
 
     if (!completed) {
-      logger.warn(`Loop ended without completion after ${guardLoop} iterations`);
+      logger.warn(
+        `Loop ended without completion after ${guardLoop} iterations`,
+      );
       yield Message("", AgentMessageType.MESSAGE_START);
       yield Message(
         "Deep search did not complete - maximum iterations reached.",
-        AgentMessageType.MESSAGE_CHUNK
+        AgentMessageType.MESSAGE_CHUNK,
       );
       yield Message("", AgentMessageType.MESSAGE_END);
     }
