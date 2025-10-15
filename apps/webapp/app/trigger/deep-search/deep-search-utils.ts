@@ -1,6 +1,7 @@
 import { type CoreMessage } from "ai";
 import { logger } from "@trigger.dev/sdk/v3";
-import { generate, processTag } from "../chat/stream-utils";
+import { generate } from "./stream-utils";
+import { processTag } from "../chat/stream-utils";
 import { type AgentMessage, AgentMessageType, Message } from "../chat/types";
 import { TotalCost } from "../utils/types";
 
@@ -36,7 +37,7 @@ export async function* run(
       logger.info(`ReAct loop iteration ${guardLoop}, searches: ${searchCount}`);
 
       // Call LLM with current message history
-      const response = generate(messages, false, (event)=>{const usage = event.usage;
+      const response = generate(messages, (event)=>{const usage = event.usage;
         totalCost.inputTokens += usage.promptTokens;
         totalCost.outputTokens += usage.completionTokens;
       }, tools);
@@ -95,34 +96,31 @@ export async function* run(
         }
       }
 
-      // Execute tool calls sequentially
+      // Execute tool calls in parallel for better performance
       if (toolCalls.length > 0) {
+        // Notify about all searches starting
         for (const toolCall of toolCalls) {
-          // Add assistant message with tool call
-          messages.push({
-            role: "assistant",
-            content: [
-              {
-                type: "tool-call",
-                toolCallId: toolCall.toolCallId,
-                toolName: toolCall.toolName,
-                args: toolCall.args,
-              },
-            ],
-          });
-
-          // Execute the search tool
           logger.info(`Executing search: ${JSON.stringify(toolCall.args)}`);
-
-          // Notify about search starting
           yield Message("", AgentMessageType.SKILL_START);
           yield Message(
             `\nSearching memory: "${toolCall.args.query}"...\n`,
             AgentMessageType.SKILL_CHUNK
           );
           yield Message("", AgentMessageType.SKILL_END);
+        }
 
-          const result = await searchTool.execute(toolCall.args);
+        // Execute all searches in parallel
+        const searchPromises = toolCalls.map((toolCall) =>
+          searchTool.execute(toolCall.args).then((result: any) => ({
+            toolCall,
+            result,
+          }))
+        );
+
+        const searchResults = await Promise.all(searchPromises);
+
+        // Process results and add to message history
+        for (const { toolCall, result } of searchResults) {
           searchCount++;
 
           // Deduplicate episodes - track unique IDs
@@ -140,6 +138,18 @@ export async function* run(
 
           const episodesInThisSearch = result.episodes?.length || 0;
           totalEpisodesFound = seenEpisodeIds.size; // Use unique count
+
+          messages.push({
+            role: "assistant",
+            content: [
+              {
+                type: "tool-call",
+                toolCallId: toolCall.toolCallId,
+                toolName: toolCall.toolName,
+                args: toolCall.args,
+              },
+            ],
+          });
 
           // Add tool result to message history
           messages.push({
