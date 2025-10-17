@@ -3,6 +3,7 @@ import { IngestionStatus } from "@core/database";
 import { EpisodeType } from "@core/types";
 import { type z } from "zod";
 import { prisma } from "~/db.server";
+import { hasCredits } from "~/services/billing.server";
 import { type IngestBodyRequest, ingestTask } from "~/trigger/ingest/ingest";
 import { ingestDocumentTask } from "~/trigger/ingest/ingest-document";
 
@@ -25,6 +26,16 @@ export const addToQueue = async (
     throw new Error(
       "Workspace ID is required to create an ingestion queue entry.",
     );
+  }
+
+  // Check if workspace has sufficient credits before processing
+  const hasSufficientCredits = await hasCredits(
+    user.Workspace?.id as string,
+    "addEpisode",
+  );
+
+  if (!hasSufficientCredits) {
+    throw new Error("no credits");
   }
 
   const queuePersist = await prisma.ingestionQueue.create({

@@ -5,6 +5,8 @@ import { SearchService } from "~/services/search.server";
 import { SpaceService } from "~/services/space.server";
 import { deepSearch } from "~/trigger/deep-search";
 import { IntegrationLoader } from "./integration-loader";
+import { hasCredits } from "~/services/billing.server";
+import { prisma } from "~/db.server";
 
 const searchService = new SearchService();
 const spaceService = new SpaceService();
@@ -277,6 +279,30 @@ async function handleUserProfile(userId: string) {
 // Handler for memory_ingest
 async function handleMemoryIngest(args: any) {
   try {
+    const workspace = await prisma.workspace.findFirst({
+      where: {
+        userId: args.userId,
+      },
+    });
+
+    // Check if workspace has sufficient credits before processing
+    const hasSufficientCredits = await hasCredits(
+      workspace?.id as string,
+      "addEpisode",
+    );
+
+    if (!hasSufficientCredits) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error ingesting data: your credits have expired`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
     // Use spaceIds from args if provided, otherwise use spaceId from query params
     const spaceIds =
       args.spaceIds || (args.spaceId ? [args.spaceId] : undefined);

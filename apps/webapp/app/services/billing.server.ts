@@ -6,7 +6,11 @@
  */
 
 import { prisma } from "~/db.server";
-import { getPlanConfig } from "~/config/billing.server";
+import {
+  BILLING_CONFIG,
+  getPlanConfig,
+  isBillingEnabled,
+} from "~/config/billing.server";
 import type { PlanType, Subscription } from "@prisma/client";
 
 export type CreditOperation = "addEpisode" | "search" | "chatMessage";
@@ -220,4 +224,52 @@ export async function getUsageSummary(workspaceId: string) {
       amount: subscription.overageAmount,
     },
   };
+}
+
+/**
+ * Check if workspace has sufficient credits
+ */
+export async function hasCredits(
+  workspaceId: string,
+  operation: CreditOperation,
+  amount?: number,
+): Promise<boolean> {
+  // If billing is disabled, always return true
+  if (!isBillingEnabled()) {
+    return true;
+  }
+
+  const creditCost = amount || BILLING_CONFIG.creditCosts[operation];
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    include: {
+      Subscription: true,
+      user: {
+        include: {
+          UserUsage: true,
+        },
+      },
+    },
+  });
+
+  if (!workspace?.user?.UserUsage || !workspace.Subscription) {
+    return false;
+  }
+
+  const userUsage = workspace.user.UserUsage;
+  // const subscription = workspace.Subscription;
+
+  // If has available credits, return true
+  if (userUsage.availableCredits >= creditCost) {
+    return true;
+  }
+
+  // If overage is enabled (Pro/Max), return true
+  // if (subscription.enableUsageBilling) {
+  //   return true;
+  // }
+
+  // Free plan with no credits left
+  return false;
 }

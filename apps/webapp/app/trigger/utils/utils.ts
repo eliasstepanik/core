@@ -650,6 +650,23 @@ export async function deductCredits(
         }),
       ]);
     } else {
+      await prisma.userUsage.update({
+        where: { id: userUsage.id },
+        data: {
+          availableCredits: 0,
+          usedCredits: userUsage.usedCredits + creditCost,
+          // Update usage breakdown
+          ...(operation === "addEpisode" && {
+            episodeCreditsUsed: userUsage.episodeCreditsUsed + creditCost,
+          }),
+          ...(operation === "search" && {
+            searchCreditsUsed: userUsage.searchCreditsUsed + creditCost,
+          }),
+          ...(operation === "chatMessage" && {
+            chatCreditsUsed: userUsage.chatCreditsUsed + creditCost,
+          }),
+        },
+      });
     }
   }
 }
