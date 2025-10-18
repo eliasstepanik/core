@@ -25,7 +25,8 @@
             "pages": [
               "concepts/memory_graph",
               "concepts/entity_types",
-              "concepts/chat"
+              "concepts/chat",
+              "concepts/spaces"
             ]
           },
           {
