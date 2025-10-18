@@ -1,0 +1,88 @@
+---
+title: "Environment Variables"
+description: "Environment variables for CORE self-hosting"
+---
+
+# Environment Variables
+
+Environment variables for the CORE webapp container.
+
+| Name                                    | Required | Default                                        | Description                                                                                     |
+| :-------------------------------------- | :------- | :--------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+| **Version**                             |          |                                                |                                                                                                 |
+| `VERSION`                               | No       | 0.1.12                                         | CORE version identifier                                                                          |
+| **Secrets**                             |          |                                                |                                                                                                 |
+| `SESSION_SECRET`                        | Yes      | —                                              | Session encryption secret. Run: `openssl rand -hex 16`                                          |
+| `MAGIC_LINK_SECRET`                     | Yes      | —                                              | Magic link encryption secret. Run: `openssl rand -hex 16`                                       |
+| `ENCRYPTION_KEY`                        | Yes      | —                                              | Data encryption key. Run: `openssl rand -hex 16`                                                |
+| **Application & Domains**               |          |                                                |                                                                                                 |
+| `REMIX_APP_PORT`                        | No       | 3033                                           | Application port number                                                                          |
+| `APP_ENV`                               | No       | production                                     | Application environment (development, production)                                                |
+| `NODE_ENV`                              | No       | production                                     | Node.js environment                                                                              |
+| `APP_ORIGIN`                            | Yes      | http://localhost:3033                          | Application origin URL                                                                           |
+| `LOGIN_ORIGIN`                          | Yes      | http://localhost:3033                          | Login origin URL (usually same as APP_ORIGIN)                                                   |
+| `API_BASE_URL`                          | No       | `APP_ORIGIN`                                   | API base URL                                                                                     |
+| **Database - PostgreSQL**               |          |                                                |                                                                                                 |
+| `DB_HOST`                               | No       | localhost                                      | Database host (use container name for Docker)                                                   |
+| `DB_PORT`                               | No       | 5432                                           | Database port                                                                                    |
+| `POSTGRES_USER`                         | Yes      | docker                                         | PostgreSQL username                                                                              |
+| `POSTGRES_PASSWORD`                     | Yes      | docker                                         | PostgreSQL password                                                                              |
+| `POSTGRES_DB`                           | Yes      | core                                           | PostgreSQL database name                                                                         |
+| `DATABASE_URL`                          | Yes      | postgresql://docker:docker@postgres:5432/core?schema=core | PostgreSQL connection string                                                      |
+| `DIRECT_URL`                            | Yes      | `DATABASE_URL`                                 | Direct DB connection string for migrations                                                       |
+| **Database - Neo4j (Memory Graph)**     |          |                                                |                                                                                                 |
+| `NEO4J_URI`                             | Yes      | bolt://neo4j:7687                              | Neo4j connection URI                                                                             |
+| `NEO4J_USERNAME`                        | Yes      | neo4j                                          | Neo4j username                                                                                   |
+| `NEO4J_PASSWORD`                        | Yes      | —                                              | Neo4j password. Run: `openssl rand -hex 16`                                                     |
+| `NEO4J_AUTH`                            | Yes      | neo4j/password                                 | Neo4j authentication (username/password format)                                                 |
+| **Redis**                               |          |                                                |                                                                                                 |
+| `REDIS_HOST`                            | Yes      | redis                                          | Redis host (use container name for Docker)                                                      |
+| `REDIS_PORT`                            | Yes      | 6379                                           | Redis port                                                                                       |
+| `REDIS_TLS_DISABLED`                    | No       | true                                           | Disable Redis TLS for local development                                                         |
+| **Authentication**                      |          |                                                |                                                                                                 |
+| `ENABLE_EMAIL_LOGIN`                    | No       | true                                           | Enable email-based authentication                                                               |
+| `AUTH_GOOGLE_CLIENT_ID`                 | No       | —                                              | Google OAuth client ID                                                                           |
+| `AUTH_GOOGLE_CLIENT_SECRET`             | No       | —                                              | Google OAuth client secret                                                                       |
+| **AI Providers**                        |          |                                                |                                                                                                 |
+| `OPENAI_API_KEY`                        | No       | —                                              | OpenAI API key for memory processing                                                             |
+| `MODEL`                                 | No       | gpt-4-turbo-2024-04-09                         | Default language model                                                                           |
+| `EMBEDDING_MODEL`                       | No       | text-embedding-3-small                         | Model for text embeddings                                                                        |
+| `OLLAMA_URL`                            | No       | http://ollama:11434                            | Ollama server URL for local models                                                               |
+| **Background Jobs - Trigger.dev**       |          |                                                |                                                                                                 |
+| `TRIGGER_PROJECT_ID`                    | Yes      | —                                              | Trigger.dev project identifier                                                                   |
+| `TRIGGER_SECRET_KEY`                    | Yes      | —                                              | Trigger.dev authentication secret                                                                |
+| `TRIGGER_API_URL`                       | Yes      | http://host.docker.internal:8030               | Trigger.dev API endpoint (use localhost:8030 for local, api.trigger.dev for cloud)             |
+
+
+## Security Considerations
+
+### Required Secrets
+
+These secrets must be generated and kept secure:
+
+```bash
+# Generate secure random secrets
+openssl rand -hex 16  # For SESSION_SECRET
+openssl rand -hex 16  # For MAGIC_LINK_SECRET  
+openssl rand -hex 16  # For ENCRYPTION_KEY
+openssl rand -hex 16  # For NEO4J_PASSWORD
+```
+
+### Production Recommendations
+
+- **Change all default passwords** before deploying to production
+- **Use environment-specific secrets** - never reuse secrets across environments
+- **Store secrets securely** - use a secrets manager in production
+- **Enable TLS** for all database connections in production
+- **Restrict CORS origins** to your actual domains
+- **Use strong authentication** - configure OAuth providers for production use
+
+### Docker Compose Networks
+
+When using Docker Compose, service names are used as hostnames:
+- `postgres` for PostgreSQL
+- `neo4j` for Neo4j
+- `redis` for Redis
+- `ollama` for Ollama (if using local models)
+
+For external services (like Trigger.dev), use `host.docker.internal` to access services running on the host machine.

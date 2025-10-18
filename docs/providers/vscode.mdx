@@ -1,0 +1,96 @@
+---
+title: "VS Code (Github Copilot)"
+description: "Connect your VS Code editor to CORE's memory system via MCP"
+---
+
+### Prerequisites
+
+- VS Code (version 1.95.0 or later) with GitHub Copilot extension
+- CORE account (sign up at [core.heysol.ai](https://core.heysol.ai))
+- [MCP support enabled](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) in VS Code
+
+### Step 1: Create MCP Configuration
+
+1. **Create or open your MCP configuration file**:
+
+   - Look for existing `mcp.json` file or create a new one in your user settings directory
+
+2. **Add CORE MCP server configuration**:
+   ```json
+   {
+     "servers": {
+       "core-memory": {
+         "url": "https://core.heysol.ai/api/v1/mcp?source=Vscode",
+         "type": "http"
+       }
+     }
+   }
+   ```
+
+### Step 2: Authenticate with CORE
+
+- Go to Extensions -> MCP Servers -> `core-memory` server
+- Click on settings icon in core-memory server and start server
+  ![Core vscode](/images/core-vscode-start-server.png)
+- Allow domain core.heysol.ai to authenticate this MCP server
+  ![Core vscode](/images/allow-domain.png)
+- Select `MCP` when this is prompted on your screen
+  ![Core vscode](/images/authenticate-vscode.png)
+- Once authenticated, CORE Memory will show as a running MCP server
+
+### Enable Automatic Memory Integration (Recommended)
+
+Configure Copilot to automatically search and store memories for seamless project continuity
+
+Create a new rules file in your project root:
+.github/copilot-instructions.md
+
+```text
+---
+alwaysApply: true
+---
+I am Copilot, an AI coding assistant with access to CORE Memory - a persistent knowledge system that maintains project context across sessions.
+
+**MANDATORY MEMORY OPERATIONS:**
+
+1. **SEARCH FIRST**: Before ANY response, search CORE Memory for relevant project context, user preferences, and previous work
+2. **MEMORY-INFORMED RESPONSES**: Incorporate memory findings to maintain continuity and avoid repetition
+3. **AUTOMATIC STORAGE**: After each interaction, store conversation details, insights, and decisions in CORE Memory
+
+**Memory Search Strategy:**
+- Query for: project context, technical decisions, user patterns, progress status, related conversations
+- Focus on: current focus areas, recent decisions, next steps, key insights
+
+**Memory Storage Strategy:**
+- Include: user intent, context provided, solution approach, technical details, insights gained, follow-up items
+
+**Response Workflow:**
+1. Search CORE Memory for relevant context
+2. Integrate findings into response planning
+3. Provide contextually aware assistance
+4. Store interaction details and insights
+
+**Memory Update Triggers:**
+- New project context or requirements
+- Technical decisions and architectural choices
+- User preference discoveries
+- Progress milestones and status changes
+- Explicit update requests
+
+**Core Principle:** CORE Memory transforms me from a session-based assistant into a persistent development partner. Always search first, respond with context, and store for continuity.
+```
+
+## What's Next?
+
+With CORE connected to VS Code, your GitHub Copilot conversations will now:
+
+- **Automatically save** important context to your CORE memory
+- **Retrieve relevant** information from previous sessions
+- **Maintain continuity** across multiple coding sessions
+- **Share context** with other connected development tools
+
+### Need Help?
+
+Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel
+
+Our team and community members are ready to help you get the most out of CORE's memory capabilities.

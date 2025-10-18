@@ -1,0 +1,89 @@
+---
+title: "Linear"
+description: "Connect Linear to your CORE's memory system"
+---
+
+![Core Linear](/images/core-linear.png)
+
+## Overview
+
+By connecting Linear with CORE, you unlock two powerful capabilities:
+
+**Persistent Project Context in CORE**  
+ Automatically add Linear issues and project details to CORE's memory. Once CORE is connected with ChatGPT, Claude Code, and Cursor you can recall sprint, issue, and project details without re-explaining them each time.
+
+**Access Linear MCP tools via CORE**  
+ CORE acts as a single MCP endpoint. With one connection, you can use Linear's MCP tools across IDEs and AI coding environments (Cursor, Claude Code, VSCode) to search, create, or update issues directly from your workflow.
+
+---
+
+## Persistent Project Context in CORE
+
+### How to Connect Linear to CORE
+
+1. **Generate Linear API Key**
+
+   - Go to **Linear Workspace → Settings → Security & Access → Personal API Keys**
+   - Create a new API key and name it **CORE**
+     ![Linear API key](/images/linear-api-key.png)
+
+2. **Connect to CORE**
+
+   - Login to [CORE Dashboard](https://core.heysol.ai) → **Integrations → Linear**
+   - Paste the API key you generated from Linear
+     ![Linear API key](/images/enter-linear-api-key.png)
+   - Your Linear account will now show as connected
+
+3. **Set Memory Rules**
+
+   Define what Linear data should enter your memory graph. For example:
+
+   ```txt
+   Only add Linear issues that are assigned to me in my CORE memory
+   ```
+
+### Benefits & Use-Cases
+
+- **Seamless AI Continuity** – Sprint goals, priorities, and active issues are always available as context
+- **Cross-Tool Recall** – Retrieve Linear context directly in ChatGPT, Claude Code, Cursor, or any MCP-connected app
+- **No Repetition** – Stop re-explaining project context in every coding session
+- **Smarter Context Retrieval** – CORE links Linear issues to related architecture, past iterations, and design decisions
+
+### Practical Example
+
+When you ask about a Linear issue tagged "Redis," CORE doesn't just surface the ticket,it also brings up related database decisions, performance benchmarks, and past team discussions, creating multiplier context for your workflow.
+
+---
+
+## Access Linear MCP Tools via CORE
+
+### Enable MCP Authentication
+
+1. In the Linear Integration box on the CORE dashboard, click **Connect for MCP**
+2. A popup will request Linear MCP access → click **Approve**
+   ![Linear API key](/images/linear-mcp-authorisation.png)
+3. CORE now exposes Linear's MCP tools through a unified MCP URL
+
+### Use Linear MCP in Your IDEs & Agents
+
+Once authenticated, you can access Linear commands directly through Cursor, Claude Code, VSCode, or any MCP-compatible tool. No separate authentication required.
+
+**Example in Claude Code or Cursor:**
+
+```
+"Create a Linear issue: Fix authentication bug in login flow"
+"Update issue DEV-123 status to In Progress"
+"Add comment to current issue: Implemented fix, ready for testing"
+"Search Linear issues assigned to me"
+```
+
+### Benefits & Use-Cases
+
+- **Single Authentication** – One connection, multiple tools
+- **In-IDE Workflow** – Create or update issues without leaving your coding environment
+- **Real-Time Status Updates** – Track and adjust project progress during development
+- **Unified Project Management** – Manage Linear issues in the same place you brainstorm, code, and collaborate
+
+## Need Help?
+
+- Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel.

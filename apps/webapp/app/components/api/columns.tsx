@@ -28,7 +28,8 @@ export const useTokensColumns = (): Array<ColumnDef<PersonalAccessToken>> => {
   const [open, setOpen] = React.useState(false);
 
   const onDelete = (id: string) => {
-    fetcher.submit({ id }, { method: "DELETE", action: "/home/api" });
+    fetcher.submit({ id }, { method: "DELETE", action: "/settings/api" });
+    setOpen(false);
   };
 
   return [

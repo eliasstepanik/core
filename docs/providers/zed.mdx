@@ -1,0 +1,110 @@
+---
+title: "Zed"
+description: "Connect your Zed editor to CORE's memory system via MCP"
+---
+
+![Core Zed](/images/core-zed.png)
+
+### Prerequisites
+
+- Zed editor (latest version recommended)
+- CORE account (sign up at [core.heysol.ai](https://core.heysol.ai))
+
+### Step 1: Add CORE MCP Server
+
+1. **Open Agent Panel Settings**:
+
+   - Press `Cmd+Shift+I` or `Cmd+L` (macOS) or `Ctrl+Shift+I` (Linux/Windows) to open Agent Panel
+   - Click the **Settings** icon in the Agent Panel Or use Command Palette: `agent: open settings`
+     ![MCP settings Zed](/images/add-mcp-zed.png)
+
+2. **Add Custom MCP Server**:
+
+   - In the Agent Panel Settings, click **"Add Custom Server"** button
+   - A configuration modal will appear
+
+3. **Configure CORE MCP Server**:
+
+Enter below code in configuraiton file and click on `Add server` button
+
+```json
+{
+  /// The name of your MCP server
+  "core-memory": {
+    "command": "npx",
+    "args": ["-y", "mcp-remote", "https://core.heysol.ai/api/v1/mcp?source=Zed"]
+  }
+}
+```
+
+### Step 2: Authenticate with CORE
+
+- After adding the CORE MCP server Zed will prompt you to open a website for authentication.
+- When the authentication window opens, Grant Zed permission to access your CORE memory
+
+### Step 3: Verify Connection
+
+- Once authenticated CORE Memory will show in the MCP server connected
+  ![Core Cursor](/images/zed-core-connected.png)
+
+### Step 4: Enable Automatic Memory Search and Ingest in Zed (Recommended)
+
+To make Zed automatically use your CORE memory in conversations:
+
+1. **Open the Rules Library:**
+
+   - Open the Agent Panel
+   - Click the Agent menu (`...`) in the top right corner
+   - Select `Rules...` from the dropdown
+
+2. Use `Cmd + N` to create new rule and add below instruction:
+
+```text
+---
+alwaysApply: true
+---
+I am Zed, an AI coding assistant with access to CORE Memory - a persistent knowledge system that maintains project context across sessions.
+
+**MANDATORY MEMORY OPERATIONS:**
+
+1. **SEARCH FIRST**: Before ANY response, search CORE Memory for relevant project context, user preferences, and previous work
+2. **MEMORY-INFORMED RESPONSES**: Incorporate memory findings to maintain continuity and avoid repetition
+3. **AUTOMATIC STORAGE**: After each interaction, store conversation details, insights, and decisions in CORE Memory
+
+**Memory Search Strategy:**
+- Query for: project context, technical decisions, user patterns, progress status, related conversations
+- Focus on: current focus areas, recent decisions, next steps, key insights
+
+**Memory Storage Strategy:**
+- Include: user intent, context provided, solution approach, technical details, insights gained, follow-up items
+
+**Response Workflow:**
+1. Search CORE Memory for relevant context
+2. Integrate findings into response planning
+3. Provide contextually aware assistance
+4. Store interaction details and insights
+
+**Memory Update Triggers:**
+- New project context or requirements
+- Technical decisions and architectural choices
+- User preference discoveries
+- Progress milestones and status changes
+- Explicit update requests
+
+**Core Principle:** CORE Memory transforms me from a session-based assistant into a persistent development partner. Always search first, respond with context, and store for continuity.
+```
+
+## What's Next?
+
+With CORE connected to Zed, your AI assistant conversations will now:
+
+- **Automatically save** important context to your CORE memory
+- **Retrieve relevant** information from previous sessions
+- **Maintain continuity** across multiple coding sessions
+- **Share context** with other connected development tools
+
+### Need Help?
+
+Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel
+
+Our team and community members are ready to help you get the most out of CORE's memory capabilities.

@@ -10,6 +10,7 @@ const LogsSearchParams = z.object({
   source: z.string().optional(),
   status: z.string().optional(),
   type: z.string().optional(),
+  sessionId: z.string().optional(),
 });
 
 export const loader = createHybridLoaderApiRoute(
@@ -25,6 +26,7 @@ export const loader = createHybridLoaderApiRoute(
     const source = searchParams.source;
     const status = searchParams.status;
     const type = searchParams.type;
+    const sessionId = searchParams.sessionId;
     const skip = (page - 1) * limit;
 
     // Get user and workspace in one query
@@ -50,6 +52,13 @@ export const loader = createHybridLoaderApiRoute(
       whereClause.data = {
         path: ["type"],
         equals: type,
+      };
+    }
+
+    if (sessionId) {
+      whereClause.data = {
+        path: ["sessionId"],
+        equals: sessionId,
       };
     }
 

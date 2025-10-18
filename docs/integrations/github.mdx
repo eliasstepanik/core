@@ -1,0 +1,92 @@
+---
+title: "GitHub"
+description: "Connect GitHub to your CORE's memory system"
+---
+
+![Core GitHub](/images/core-github.png)
+
+## Overview
+
+Integrating GitHub with CORE unlocks two key capabilities:
+
+**Persistent Project Context**
+
+Automatically sync pull requests, issues, and code reviews into CORE’s memory. Connected to ChatGPT, Claude Code, or Cursor, you can recall repository details, code changes, and past decisions without repeating yourself.
+
+**Access GitHub MCP tools via CORE**
+
+CORE becomes a single MCP endpoint. With one connection, you can access GitHub MCP tools across IDEs and AI coding environments (Cursor, Claude Code, VSCode) to manage PRs, issues, and repositories—directly from your workflow.
+
+---
+
+## Persistent Project Context in CORE
+
+### Connect GitHub to CORE
+
+1. **Navigate to Integrations**
+
+   Go to **CORE Dashboard -> Integrations -> GitHub**
+   ![GitHub Integration Page](/images/github-integration-page.png)
+
+2. **Authenticate via OAuth**
+
+   Click **Connect to GitHub** and authorize CORE.  
+   ![Approve GitHub](/images/approve-github.png)
+
+3. **Authorize CORE**
+
+   Approve requested permissions. Your GitHub account will now show as connected.
+   ![GitHub Authenticated](/images/github-authenticated.png)
+
+### Set Memory Rules
+
+Choose what GitHub data should enter your memory graph. For example:
+
+```txt
+Add all pull requests I'm assigned to review
+Include issues from the main project repository
+```
+
+### Benefits & Use-Cases
+
+- **Code Review Context**  PR discussions, review comments, and approval history are always available
+- **Repository Knowledge**  Access architecture decisions, and technical discussions across sessions
+- **Issue Tracking**  Never lose track of bug reports, feature requests, and their resolution paths
+- **Cross-Tool Development**  Retrieve GitHub context directly in ChatGPT, Claude Code, Cursor, or any MCP-connected app
+- **Smart Code Connections**  CORE links commits to related issues, PRs to architectural decisions, and reviews to implementation details
+
+### Practical Example
+
+Ask about a feature, and CORE surfaces not just commits, but also linked PRs, discussions, reviews, and decisions, giving you complete context.
+
+---
+
+## Access GitHub MCP Tools via CORE
+
+### Enable MCP Authentication
+
+Once GitHub is connected, MCP tools are enabled, no extra setup required.
+
+### Use GitHub MCP in Your IDEs & Agents
+
+Run GitHub commands directly in Cursor, Claude Code, VSCode, or any MCP-enabled tool:
+
+```
+"Create a GitHub issue: Fix authentication bug in login flow"
+"Show me all open PRs in the main repository"
+"Update PR #123 with review comments and set to approved"
+"Search GitHub for similar implementations of OAuth flow"
+"Create a new branch and PR for the feature I'm working on"
+```
+
+### Benefits & Use-Cases
+
+- **One Login**: Single authentication across all AI tools
+- **In-IDE Management**: Create issues, manage PRs, and search repos without leaving your IDE
+- **Real-Time Updates**: Track progress during coding sessions
+- **Unified Workflow**: Brainstorm, code, and manage GitHub from one place
+- **Seamless Reviews**: Request, respond, and merge PRs directly from your environment
+
+## Need Help?
+
+- Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel.

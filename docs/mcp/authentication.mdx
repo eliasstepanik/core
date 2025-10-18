@@ -1,0 +1,34 @@
+---
+title: "Authentication"
+description: "Two ways to authenticate with CORE's MCP endpoint"
+---
+
+CORE supports two authentication methods for MCP access.
+
+## Methods
+
+### 1. OAuth Flow (Recommended)
+Follows the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) for standard OAuth authentication.
+
+- Web-based authentication flow
+- Tokens auto-refresh and can be revoked
+- Best for production environments
+
+### 2. API Key
+Direct authentication using API keys from CORE dashboard.
+
+- Generate from [CORE Dashboard](https://core.heysol.ai) → Settings → API Keys  
+- Simple setup for development and testing
+- Include in Authorization header: `Bearer your-api-key-here`
+
+## Setup
+
+See provider-specific guides for configuration:
+- [Claude AI](/providers/claude)
+- [Cursor](/providers/cursor)
+- [VS Code](/providers/vscode) 
+- [Zed](/providers/zed)
+
+## Dashboard
+
+Monitor authentication at [core.heysol.ai](https://core.heysol.ai) → Settings → MCP

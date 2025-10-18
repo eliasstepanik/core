@@ -1,0 +1,100 @@
+---
+title: "Kilo-Code"
+description: "Connect Kilo Code Agent to CORE's memory system via MCP"
+---
+
+![Core Kilo Code](/images/core-kilo-code.png)
+
+### Prerequisites
+
+Before connecting CORE to Kilo-Code, ensure you have:
+
+- CORE account (sign up at [core.heysol.ai](https://core.heysol.ai))
+- Kilo-Code installed and running in your IDE
+
+---
+
+### Step 1: Configure MCP Server
+
+- In Kilo-Code, open **Settings** → **MCP Servers** → **Installed** tab → click **Edit Global MCP** to edit your configuration.
+  ![Core Kilo Code](/images/kilo-mcp-server.png)
+- Add the following to your MCP config file:
+
+```
+{
+"mcpServers": {
+    "core-memory": {
+    "command": "npx",
+    "args": [
+        "-y",
+        "mcp-remote",
+        "https://core.heysol.ai/api/v1/mcp?source=Kilo-Code"
+    ]
+    }
+}
+}
+```
+
+- Save the configuration. You’ll be redirected to your browser for authentication.
+
+### Step 2 - Authenticate with CORE
+
+- Once redirected to browser, Click on "Allow Access"
+  ![Core Kilo Code](/images/kilo-code-auth.png)
+- Confirm that "core-memory" appears as an active, connected server in Kilo-Code
+
+### Enable Automatic Memory Integration (Recommended)
+
+To get the most out of CORE, configure Kilo-Code to automatically search and store memories for seamless project continuity:
+
+Create a new file `core-memory.md` at `.kilo-code/rules` and add the following:
+
+```text
+---
+alwaysApply: true
+---
+I am Kilo-Code, an AI coding assistant with access to CORE Memory - a persistent knowledge system that maintains project context across sessions.
+
+**MANDATORY MEMORY OPERATIONS:**
+
+1. **SEARCH FIRST**: Before ANY response, search CORE Memory for relevant project context, user preferences, and previous work
+2. **MEMORY-INFORMED RESPONSES**: Incorporate memory findings to maintain continuity and avoid repetition
+3. **AUTOMATIC STORAGE**: After each interaction, store conversation details, insights, and decisions in CORE Memory
+
+**Memory Search Strategy:**
+- Query for: project context, technical decisions, user patterns, progress status, related conversations
+- Focus on: current focus areas, recent decisions, next steps, key insights
+
+**Memory Storage Strategy:**
+- Include: user intent, context provided, solution approach, technical details, insights gained, follow-up items
+
+**Response Workflow:**
+1. Search CORE Memory for relevant context
+2. Integrate findings into response planning
+3. Provide contextually aware assistance
+4. Store interaction details and insights
+
+**Memory Update Triggers:**
+- New project context or requirements
+- Technical decisions and architectural choices
+- User preference discoveries
+- Progress milestones and status changes
+- Explicit update requests
+
+**Core Principle:** CORE Memory transforms me from a session-based assistant into a persistent development partner. Always search first, respond with context, and store for continuity.
+```
+
+### Using CORE Memory in Kilo-Code
+
+Once connected, CORE automatically enhances your development workflow:
+
+- **Persistent Context**: Your conversations and project context persist across sessions
+- **Cross-Session Learning**: CORE remembers your coding patterns and preferences
+- **Smart Suggestions**: Get contextually relevant recommendations based on your history
+- **Project Continuity**: Seamlessly resume work on complex projects
+
+### Need Help?
+
+Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel
+
+Our team and community members are ready to help you get the most out of CORE's memory capabilities.

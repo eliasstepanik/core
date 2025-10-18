@@ -1,0 +1,65 @@
+---
+title: "Configuration"
+description: "Configure CORE's MCP endpoint with query parameters"
+---
+
+CORE's MCP endpoint supports flexible configuration through query parameters.
+
+## Base URL
+
+```
+https://core.heysol.ai/api/v1/mcp
+```
+
+## Parameters
+
+### Required
+
+**source** - Identifies your connection in the dashboard
+```
+?source=Claude
+?source=Cursor
+?source=VSCode
+```
+
+### Optional
+
+**integrations** - Specify which integrations to include
+```
+&integrations=github,linear
+&integrations=linear
+```
+
+**no_integrations** - Disable all integrations (CORE tools only)
+```
+&no_integrations=true
+```
+
+## Examples
+
+**All integrations:**
+```
+https://core.heysol.ai/api/v1/mcp?source=Claude
+```
+
+**Specific integrations:**
+```
+https://core.heysol.ai/api/v1/mcp?source=Cursor&integrations=github,linear
+```
+
+**CORE tools only:**
+```
+https://core.heysol.ai/api/v1/mcp?source=VSCode&no_integrations=true
+```
+
+## Setup in AI Tools
+
+See provider-specific setup guides:
+- [Claude AI](/providers/claude)
+- [Cursor](/providers/cursor) 
+- [VS Code](/providers/vscode)
+- [Zed](/providers/zed)
+
+## Dashboard
+
+Monitor connections at [core.heysol.ai](https://core.heysol.ai) → Settings → MCP

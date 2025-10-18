@@ -1,0 +1,73 @@
+---
+title: "Docker"
+description: "Get started with CORE in 5 minutes"
+---
+
+> **Warning:**  
+> You can self-host CORE on your own infrastructure using Docker.  
+> The following instructions will use Docker Compose to spin up a CORE instance.  
+> Make sure to read the [self-hosting overview](/self-hosting/overview) first.  
+> As self-hosted deployments tend to have unique requirements and configurations, we don’t provide specific advice for securing your deployment, scaling up, or improving reliability.  
+> **This guide alone is unlikely to result in a production-ready deployment. Security, scaling, and reliability concerns are not fully addressed here.**  
+> Should the burden ever get too much, we’d be happy to see you on CORE Cloud where we deal with these concerns for you.
+
+
+## Requirements
+
+These are the minimum requirements for running the webapp and background job components. They can run on the same, or on separate machines.
+
+It's fine to run everything on the same machine for testing. To be able to scale your workers, you will want to run them separately.
+
+### Prerequisites
+
+To run CORE, you will need:
+
+- Docker 20.10.0+
+- Docker Compose 2.20.0+
+
+### System Requirements
+
+**Webapp & Database Machine:**
+- 4+ vCPU
+- 8+ GB RAM
+- 20+ GB Storage
+
+**Background Jobs Machine (if running separately):**
+- 2+ vCPU
+- 4+ GB RAM
+- 10+ GB Storage
+
+## Deployment Options
+
+CORE offers two deployment approaches depending on your needs:
+
+> **Prerequisites:**  
+> Before starting any deployment, ensure you have your `OPENAI_API_KEY` ready. This is required for AI functionality in CORE.  
+> You must add your `OPENAI_API_KEY` to the `core/hosting/docker/.env` file before starting the services.
+
+### Combined Setup
+
+For self deployment with both CORE and Trigger.dev running together:
+
+1. Clone core repository
+   ```bash
+   # Clone the repository
+   git clone https://github.com/RedPlanetHQ/core.git
+   cd core/hosting/docker
+   ```
+
+2. Start the services:
+   ```bash
+   docker compose up -d
+   ```
+
+## Next Steps
+
+Once deployed, you can:
+
+- Configure your AI providers (OpenAI, Anthropic, etc.)
+- Set up integrations (Slack, GitHub, Gmail)
+- Start building your memory graph
+- Explore the CORE API and SDK
+
+

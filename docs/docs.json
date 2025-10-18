@@ -1,0 +1,186 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "palm",
+  "name": "CORE Documentation",
+  "colors": {
+    "primary": "#c15e50",
+    "light": "#c15e50",
+    "dark": "#c15e50"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "getting-started"
+            ]
+          },
+          {
+            "group": "Memory",
+            "pages": [
+              "concepts/memory_graph",
+              "concepts/entity_types",
+              "concepts/chat"
+            ]
+          },
+          {
+            "group": "MCP",
+            "pages": [
+              "mcp/overview",
+              "mcp/configuration",
+              "mcp/authentication"
+            ]
+          },
+          {
+            "group": "Providers",
+            "pages": [
+              {
+                "group": "IDE",
+                "pages": [
+                  "providers/cursor",
+                  "providers/zed",
+                  "providers/vscode"
+                ]
+              },
+              {
+                "group": "Coding Agents",
+                "pages": [
+                  "providers/kilo-code"
+                ]
+              },
+              {
+                "group": "CLI",
+                "pages": [
+                  "providers/claude-code"
+                ]
+              },
+              {
+                "group": "Desktop and Webapp",
+                "pages": [
+                  "providers/browser-extension",
+                  "providers/claude",
+                  "providers/obsidian"
+
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview",
+              "integrations/user_rules",
+              "integrations/linear",
+              "integrations/github"
+            ]
+          },
+          {
+            "group": "Self hosting",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/docker",
+              "self-hosting/environment-variables"
+            ]
+          },
+          {
+            "group": "Opensource",
+            "pages": [
+              "opensource/contributing",
+              "opensource/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "openapi.json",
+        "groups": [
+          {
+            "group": "User",
+            "pages": [
+              "GET /api/profile"
+            ]
+          },
+          {
+            "group": "Memory",
+            "pages": [
+              "POST /api/v1/search",
+              "POST /api/v1/add",
+              "GET /api/v1/episodes/{episodeId}/facts",
+              "GET /api/v1/logs",
+              "GET /api/v1/logs/{logId}",
+              "DELETE /api/v1/logs/{logId}"
+            ]
+          },
+          {
+            "group": "Spaces",
+            "pages": [
+              "GET /api/v1/spaces",
+              "POST /api/v1/spaces",
+              "PUT /api/v1/spaces",
+              "GET /api/v1/spaces/{spaceId}",
+              "PUT /api/v1/spaces/{spaceId}",
+              "DELETE /api/v1/spaces/{spaceId}"
+            ]
+          },
+          {
+            "group": "OAuth2",
+            "pages": [
+              "GET /oauth/authorize",
+              "POST /oauth/authorize",
+              "POST /oauth/token",
+              "GET /oauth/userinfo",
+              "GET /oauth/tokeninfo"
+            ]
+          },
+          {
+            "group": "Webhook",
+            "pages": [
+              "POST /api/v1/webhooks",
+              "GET /api/v1/webhooks/{id}",
+              "PUT /api/v1/webhooks/{id}"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/core_logo.png",
+    "dark": "/logo/core_logo.png"
+  },
+  "api": {
+    "playground": {
+      "display": "interactive"
+    }
+  },
+  "background": {
+    "color": {
+      "light": "#fff",
+      "dark": "#191919"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/dVTC3BmgEq"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/RedPlanetHQ/core"
+    }
+  },
+  "footer": {
+    "socials": {
+      "twitter": "https://x.com/heysol_ai",
+      "linkedin": "https://www.linkedin.com/company/redplanethq"
+    }
+  }
+}

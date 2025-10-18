@@ -1,0 +1,127 @@
+---
+title: "Claude"
+description: "Connect your Claude Desktop app to CORE's memory system"
+---
+
+### Prerequisites
+
+- Claude Desktop app installed on your device
+- CORE account (sign up at [core.heysol.ai](https://core.heysol.ai))
+
+### Step 1: Add CORE Connector
+
+1. Open Claude Desktop app
+2. Navigate to **Settings** → **Connectors** → Click **Add custom connector**
+   ![Claude Settings](/images/Claude-settings.png)
+3. Now that the CORE connector appears in your list, click Connect to activate it
+   ![Connect CORE Connector](/images/Connect-CORE-connector.png)
+4. Enter the CORE MCP URL:
+   ```
+   https://core.heysol.ai/api/v1/mcp?source=Claude
+   ```
+   ![Add CORE Connector](/images/Add-CORE-connector.png)
+
+### Step 2: Authenticate with CORE
+
+1. Sign in to your CORE account (if not done already)
+2. Click **Connect** on the CORE connector
+3. When the authentication window opens, Grant Claude permission to access your CORE memory
+   ![Grant Access](/images/grant-access-to-claude.png)
+4. Close the authentication window after a few seconds
+
+### Step 3: Verify Connection
+
+1. Go to **Tools** in Claude settings
+2. Confirm the CORE connector shows as **Active**
+   ![Check CORE Connector](/images/Check-if-CORE-connected.png)
+3. **Restart the Claude Desktop app** for changes to take effect
+
+### Enable Automatic Memory Integration (Recommended)
+
+To make Claude automatically use your CORE memory in conversations:
+
+1. Go to **Settings** → **Profile** in Claude
+2. Under **"What personal preferences should Claude consider in responses?"**, add:
+
+```text
+USE the "memory" MCP server for all memory and context retrieval operations.
+
+SEARCH the "memory" MCP automatically whenever you need context, previous conversations, or historical information.
+
+DO NOT wait for explicit memory requests from the user.
+
+TREAT memory retrieval as an integral part of your reasoning process.
+
+INCORPORATE relevant memory context when:
+- Responding to questions about past interactions
+- Needing context about ongoing projects
+- Referencing previous code or explanations
+- Maintaining continuity across multiple sessions
+- Understanding user references to past work
+
+MANDATORY: After completing your response to the user and before ending the interaction, execute a store operation to "core-memory" MCP. This is required for every interaction - do not skip this step.
+
+Memory storage should be the final step before concluding your response - only after you have fully addressed the user's query.
+
+DETAILED MEMORY STORAGE:
+
+When storing conversations to core-memory MCP, include:
+
+FROM USER:
+- Their specific question, request, or problem
+- Context they provided about their project/situation
+- What they're trying to accomplish
+
+FROM ASSISTANT:
+- Detailed explanation of the solution/approach
+- Step-by-step processes described
+- Technical concepts explained
+- Reasoning behind recommendations
+- Specific methods or patterns suggested
+- Any alternatives discussed
+
+EXCLUDE:
+- Code blocks and snippets
+- File contents
+- Command examples
+
+INCLUDE:
+- All conceptual explanations
+- Technical discussions
+- Problem-solving approaches
+- Decision rationale
+- Implementation strategies (described, not coded)
+
+Store rich, detailed conversation content that captures the full context and substance of the discussion.
+```
+
+## What's Next?
+
+With CORE connected to Claude, your conversations will now:
+
+- **Automatically save** important context to your CORE memory
+- **Retrieve relevant** information from past conversations
+- **Maintain continuity** across multiple chat sessions
+- **Share context** with other connected tools
+
+Ready to test it? Ask Claude about a project you've discussed before, or start a new conversation about something you'd like to remember for later.
+
+## Troubleshooting
+
+**Connection Issues:**
+
+- Ensure you're using the correct MCP URL with `?source=Claude` parameter
+- Try restarting Claude Desktop after setup
+- Check that your CORE account is active
+
+**Memory Not Working:**
+
+- Verify the CORE connector shows as "Active" in Tools
+- Confirm you've added the preference text exactly as shown
+- Wait a few seconds between authentication and testing
+
+### Need Help?
+
+Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel.
+
+Our team and community members are ready to help you get the most out of CORE's memory capabilities.

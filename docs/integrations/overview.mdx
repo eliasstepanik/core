@@ -1,0 +1,116 @@
+---
+title: "Overview"
+description: "Connect your essential work tools to CORE for memory and MCP access"
+---
+
+CORE integrations transform how you work with your essential tools by providing two powerful capabilities that work together to create a seamless AI-powered workflow.
+
+## How CORE Integrations Work
+
+### 1. Activity Ingestion to Memory
+
+**Automatically capture and structure your work activities**
+
+When you connect an integration to CORE, it begins monitoring your activities and intelligently adding them to your memory graph:
+
+- **GitHub**: Commits, pull requests, issues, and code reviews become episodes in your memory
+- **Linear**: Issues, comments, and project updates are preserved with full context
+- **Slack**: Important conversations and decisions are captured and linked to relevant projects
+
+**Smart Memory Rules**
+
+You have complete control over what gets ingested into your memory. Using [User Rules](/integrations/user_rules), you can:
+
+```txt
+Only add Linear issues that are assigned to me
+Ignore Slack messages from #random channel
+Add all GitHub commits to the TaskMaster repository
+```
+
+This ensures your memory graph contains only the information that matters to you, creating a focused and relevant knowledge base.
+
+### 2. MCP Connection
+
+**Single endpoint for all your tool integrations**
+
+Beyond memory ingestion, CORE acts as a unified MCP (Model Context Protocol) proxy, making all your connected integrations available through a single endpoint to your AI tools.
+
+**Benefits:**
+- **One Connection**: Connect once to CORE, access all your integrations
+- **Universal Access**: Use the same integrations across Claude, Cursor, VSCode, and other AI tools
+- **Simplified Authentication**: CORE handles all integration authentication for you
+
+[Learn more about CORE's MCP capabilities](/mcp/overview)
+
+---
+
+## Webhook Integration & Real-Time Events
+
+CORE can stream your activities in real-time through webhooks, enabling powerful automation and real-time processing:
+
+### Webhook Configuration
+
+Activities are sent as events to your configured webhook endpoints, allowing you to:
+
+- Build custom automation workflows
+- Create real-time dashboards
+- Integrate with other systems and tools
+- Process activities through your own pipelines
+
+### OAuth App Integration
+
+Connect OAuth applications with webhook scope to receive authenticated activity streams. This enables:
+
+- **Secure Access**: OAuth-protected webhook endpoints
+- **Scoped Permissions**: Control exactly which activities are streamed
+- **Real-Time Processing**: Immediate activity notifications for time-sensitive workflows
+
+---
+
+## Getting Started with Integrations
+
+### Step 1: Connect Your Tools
+
+1. Navigate to [CORE Dashboard](https://core.heysol.ai) **Integrations**
+2. Select the platform you want to connect
+3. Complete the OAuth authentication process
+4. Configure your memory ingestion preferences
+
+### Step 2: Set Memory Rules
+
+Define what activities should enter your memory graph:
+
+1. Go to **Settings** [**User Rules**](/concepts/user_rules)
+2. Create rules to filter and control activity ingestion
+3. Test your rules to ensure they capture the right information
+
+
+## Benefits & Use Cases
+
+### For Memory & Context
+- **Persistent Project Knowledge**: Never lose track of decisions, discussions, and progress
+- **Cross-Tool Recall**: Access project context from any AI tool or conversation
+- **Smart Connections**: CORE links related activities across different platforms
+
+### For MCP & Automation  
+- **Unified Workflow**: Manage all integrations from one place
+- **In-IDE Actions**: Create issues, update tasks, and query data without context switching
+- **Real-Time Sync**: Webhook integration keeps everything up-to-date instantly
+
+### Practical Example
+
+When working on a feature, CORE automatically:
+
+1. **Captures** your Linear issue assignment in memory
+2. **Links** related GitHub commits and PR discussions  
+3. **Provides** this context to Claude Code when you ask about the feature
+4. **Enables** you to update the Linear issue status directly from your IDE
+5. **Streams** all activities to your webhook for dashboard updates
+
+This creates a seamless flow where your tools work together through CORE's intelligent coordination.
+
+## Need Help?
+
+- Join our [Discord community](https://discord.gg/YGUZcvDjUa) for support in **#core-support**
+- Check individual integration guides for detailed setup instructions
+- Visit [MCP documentation](/mcp/overview) for advanced configuration options

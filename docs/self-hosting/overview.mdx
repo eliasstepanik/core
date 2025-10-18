@@ -1,0 +1,39 @@
+---
+title: "Overview"
+description: "Self-host CORE on your own infrastructure"
+---
+
+## Overview
+
+You can self-host CORE on your own infrastructure.
+
+Self-hosting CORE means you run and manage the platform on your own infrastructure, giving you full control over your environment, deployment process, and the URLs you expose the service on.
+You are responsible for provisioning resources, handling updates, and managing any security, scaling or reliability challenges that arise.
+
+We provide version-tagged releases for self-hosted deployments. It's highly advised to use these tags exclusively and keep them locked with your CLI version.
+
+## Should you self-host?
+
+CORE Cloud is fully managed, scalable, and comes with dedicated support. For most users, it offers the best experience. However, if you have specific requirements around data residency, compliance, or infrastructure control, self-hosting may be the right choice for you.
+
+The self-hosted version is functionally the same as CORE Cloud with some exceptions, but our managed Cloud infrastructure is designed for high availability, security, and scale.
+
+Because we don't manage self-hosted instances, we cannot guarantee how CORE will perform on your infrastructure. You assume all responsibility and risk for your deployment, including security, uptime, and data integrity.
+
+For more details, carry on reading and follow our guides for instructions on setting up a self-hosted CORE instance. If you prefer a managed experience, you can sign up for our Cloud offering instead - we have a generous free tier for you to try it out.
+
+## Architecture
+
+The self-hosted version of CORE is composed of several containers that you run on your own infrastructure. Each component can be scaled independently:
+
+- **Webapp**: The main application container, responsible for serving the user interface and orchestrating memory operations.
+- **PostgreSQL**: Stores metadata, user accounts, and configuration data.
+- **Neo4j**: Graph database used for storing and querying the memory graph.
+- **[Trigger](https://trigger.dev/)**: Manages background jobs and workflows, such as data ingestion and memory formation. We use Trigger to reliably handle all background processing.
+- **Redis**: Provides caching and session management.
+
+This modular architecture allows you to scale each service as needed and gives you full control over your deployment.
+
+## Community support
+
+It's dangerous to go alone! Join the self-hosting channel on our [Discord server](https://discord.gg/dVTC3BmgEq).
