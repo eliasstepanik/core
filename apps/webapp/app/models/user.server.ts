@@ -238,3 +238,127 @@ export async function grantUserCloudAccess({
     },
   });
 }
+
+export async function deleteUser(id: User["id"]) {
+  // Get user's workspace
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      Workspace: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // If workspace exists, delete all workspace-related data
+  // Most models DON'T have onDelete: Cascade, so we must delete manually
+  if (user.Workspace) {
+    const workspaceId = user.Workspace.id;
+
+    // 1. Delete nested conversation data
+    await prisma.conversationExecutionStep.deleteMany({
+      where: {
+        conversationHistory: {
+          conversation: { workspaceId },
+        },
+      },
+    });
+
+    await prisma.conversationHistory.deleteMany({
+      where: {
+        conversation: { workspaceId },
+      },
+    });
+
+    await prisma.conversation.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 2. Delete space patterns (nested under Space)
+    await prisma.spacePattern.deleteMany({
+      where: {
+        space: { workspaceId },
+      },
+    });
+
+    await prisma.space.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 3. Delete webhook delivery logs (nested under WebhookConfiguration)
+    await prisma.webhookDeliveryLog.deleteMany({
+      where: {
+        webhookConfiguration: { workspaceId },
+      },
+    });
+
+    await prisma.webhookConfiguration.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 4. Delete ingestion data
+    await prisma.ingestionQueue.deleteMany({
+      where: { workspaceId },
+    });
+
+    await prisma.ingestionRule.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 5. Delete integration accounts
+    await prisma.integrationAccount.deleteMany({
+      where: { workspaceId },
+    });
+
+    await prisma.integrationDefinitionV2.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 6. Delete recall logs
+    await prisma.recallLog.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 7. Delete activities
+    await prisma.activity.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 8. Delete MCP sessions
+    await prisma.mCPSession.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 9. Delete billing history (nested under Subscription)
+    await prisma.billingHistory.deleteMany({
+      where: {
+        subscription: { workspaceId },
+      },
+    });
+
+    await prisma.subscription.deleteMany({
+      where: { workspaceId },
+    });
+
+    // 10. Delete the workspace (this will CASCADE delete OAuth models automatically)
+    await prisma.workspace.delete({
+      where: { id: workspaceId },
+    });
+  }
+
+  // Delete user-specific data
+  await prisma.personalAccessToken.deleteMany({
+    where: { userId: id },
+  });
+
+  await prisma.userUsage.deleteMany({
+    where: { userId: id },
+  });
+
+  // Finally, delete the user
+  return prisma.user.delete({
+    where: { id },
+  });
+}

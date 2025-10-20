@@ -53,7 +53,7 @@ export function NavUser({ user }: { user: ExtendedUser }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="flex gap-2"
-              onClick={() => navigate("/settings/api")}
+              onClick={() => navigate("/settings/account")}
             >
               <Settings size={16} />
               Settings
