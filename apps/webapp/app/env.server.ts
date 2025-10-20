@@ -64,8 +64,9 @@ const EnvironmentSchema = z.object({
   NEO4J_USERNAME: z.string(),
   NEO4J_PASSWORD: z.string(),
 
-  //OpenAI
+  //Model API Key
   OPENAI_API_KEY: z.string(),
+  ANTHROPIC_API_KEY: z.string(),
 
   EMAIL_TRANSPORT: z.string().optional(),
   FROM_EMAIL: z.string().optional(),

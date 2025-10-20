@@ -99,6 +99,9 @@ export async function makeModelCall(
     case "claude-3-7-sonnet-20250219":
     case "claude-3-opus-20240229":
     case "claude-3-5-haiku-20241022":
+    case "claude-sonnet-4-5":
+    case "claude-haiku-4-5":
+    case "claude-opus-4-1":
       modelInstance = anthropic(model, { ...options });
       break;
 
@@ -206,6 +209,7 @@ export async function getEmbedding(text: string) {
     });
     return embedding;
   }
+  console.log("Using Ollama embedding url: ", ollamaUrl);
 
   const ollama = createOllama({
     baseURL: ollamaUrl,
