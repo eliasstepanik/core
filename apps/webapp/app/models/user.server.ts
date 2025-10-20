@@ -2,6 +2,7 @@ import type { Prisma, User } from "@core/database";
 import type { GoogleProfile } from "@coji/remix-auth-google";
 import { prisma } from "~/db.server";
 import { env } from "~/env.server";
+import { runQuery } from "~/lib/neo4j.server";
 export type { User } from "@core/database";
 
 type FindOrCreateMagicLink = {
@@ -250,6 +251,23 @@ export async function deleteUser(id: User["id"]) {
 
   if (!user) {
     throw new Error("User not found");
+  }
+
+  // Delete all user-related nodes from the Neo4j knowledge graph
+  try {
+    // Delete all nodes (Episodes, Entities, Statements, Spaces, Documents, Clusters)
+    // and their relationships where userId matches
+    await runQuery(
+      `
+      MATCH (n {userId: $userId})
+      DETACH DELETE n
+      `,
+      { userId: id }
+    );
+    console.log(`Deleted all graph nodes for user ${id}`);
+  } catch (error) {
+    console.error("Failed to delete graph nodes:", error);
+    // Continue with deletion even if graph cleanup fails
   }
 
   // If workspace exists, delete all workspace-related data
