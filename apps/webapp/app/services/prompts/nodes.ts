@@ -8,8 +8,8 @@ import { type CoreMessage } from "ai";
  * Extract entities from content using unified approach (works for both conversations and documents)
  */
 export const extractEntities = (
-  context: Record<string, any>, 
-  extractionMode: 'conversation' | 'document' = 'conversation'
+  context: Record<string, any>,
+  extractionMode: "conversation" | "document" = "conversation",
 ): CoreMessage[] => {
   const sysPrompt = `You are an AI assistant that extracts entity nodes from conversational messages for a reified knowledge graph.
 Your primary task is to extract all significant entities mentioned in the conversation, treating both concrete entities and type/concept entities as first-class nodes.
@@ -204,13 +204,18 @@ You are given a conversation context and a CURRENT EPISODE. Your task is to extr
 4. End with exactly: </output>
 5. NO additional text, NO comments, NO explanations`;
 
-  const contentLabel = extractionMode === 'conversation' ? 'CURRENT EPISODE' : 'TEXT';
+  const contentLabel =
+    extractionMode === "conversation" ? "CURRENT EPISODE" : "TEXT";
   const userPrompt = `
-${extractionMode === 'conversation' ? `<PREVIOUS EPISODES>
+${
+  extractionMode === "conversation"
+    ? `<PREVIOUS EPISODES>
 ${JSON.stringify(context.previousEpisodes || [], null, 2)}
 </PREVIOUS EPISODES>
 
-` : ''}<${contentLabel}>
+`
+    : ""
+}<${contentLabel}>
 ${context.episodeContent}
 </${contentLabel}>
 
@@ -221,7 +226,6 @@ ${context.episodeContent}
     { role: "user", content: userPrompt },
   ];
 };
-
 
 /**
  * Resolve entity duplications
@@ -323,65 +327,5 @@ ${JSON.stringify(context.extracted_nodes, null, 2)}
 </ENTITIES>
 `,
     },
-  ];
-};
-
-export const extractAttributes = (
-  context: Record<string, any>,
-): CoreMessage[] => {
-  const sysPrompt = `
-You are an AI assistant that extracts and enhances entity attributes based on context.
-Your task is to analyze entities and provide appropriate attribute values based on available information.
-
-For each entity:
-1. Analyze the context to identify relevant attributes for the entity
-2. Extract appropriate values from the episode content if available
-3. Focus on factual, descriptive attributes rather than type classifications
-4. Give empty attributes object ({}) when there are no attributes to update
-5. Only include attributes that you're adding or modifying
-6. I'll merge your new attributes with existing ones, so only provide updates
-
-Common attribute types to consider:
-- Descriptive properties (color, size, status, etc.)
-- Relational context (role, position, relationship, etc.)
-- Temporal information (duration, frequency, etc.)
-- Qualitative aspects (importance, preference, etc.)
-
-## CRITICAL OUTPUT FORMAT REQUIREMENTS:
-
-**YOU MUST STRICTLY FOLLOW THESE FORMAT RULES:**
-1. **ALWAYS use <output> tags** - Never use any other tag format
-2. **ONLY output valid JSON** within the <output> tags
-3. **NO additional text** before or after the <output> tags
-4. **NO comments** inside the JSON
-5. **REQUIRED structure:** Must follow exact JSON schema shown below
-
-<output>
-{
-  "entities": [
-    {
-      "uuid": "entity-uuid",
-      "attributes": {
-        "attributeName1": "value1",
-        "attributeName2": "value2"
-      }
-    }
-  ]
-}
-</output>`;
-
-  const userPrompt = `
-<ENTITIES>
-${JSON.stringify(context.entities, null, 2)}
-</ENTITIES>
-
-<EPISODE_CONTENT>
-${context.episodeContent}
-</EPISODE_CONTENT>
-
-Based on the above information, please extract and enhance attributes for each entity based on the context. Return only the uuid and updated attributes for each entity.`;
-  return [
-    { role: "system", content: sysPrompt },
-    { role: "user", content: userPrompt },
   ];
 };
