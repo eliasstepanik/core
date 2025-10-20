@@ -171,6 +171,20 @@ export async function cancelSubscription(workspaceId: string): Promise<void> {
 }
 
 /**
+ * Cancel a subscription immediately (for account deletion)
+ */
+export async function cancelSubscriptionImmediately(
+  subscriptionId: string,
+): Promise<void> {
+  if (!stripe || !isStripeConfigured()) {
+    throw new Error("Stripe is not configured");
+  }
+
+  // Cancel immediately
+  await stripe.subscriptions.cancel(subscriptionId);
+}
+
+/**
  * Reactivate a canceled subscription
  */
 export async function reactivateSubscription(

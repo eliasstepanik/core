@@ -36,6 +36,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { prisma } from "~/db.server";
 import { isBillingEnabled } from "~/config/billing.server";
+import { SettingSection } from "~/components/setting-section";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
@@ -230,218 +231,233 @@ export default function BillingSettings() {
   }
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription, usage, and billing history
-        </p>
-      </div>
+    <div className="mx-auto flex w-3xl flex-col gap-4 px-4 py-6">
+      <SettingSection
+        title="Billing"
+        description=" Manage your subscription, usage, and billing history"
+      >
+        <>
+          {/* Usage Section */}
+          <div className="mb-8">
+            <h2 className="mb-4 text-lg font-semibold">Current Usage</h2>
 
-      {/* Usage Section */}
-      <div className="mb-8">
-        <h2 className="mb-4 text-lg font-semibold">Current Usage</h2>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {/* Credits Card */}
-          <Card className="p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Credits</span>
-              <CreditCard className="text-muted-foreground h-4 w-4" />
-            </div>
-            <div className="mb-2">
-              <span className="text-3xl font-bold">
-                {usageSummary.credits.available}
-              </span>
-              <span className="text-muted-foreground">
-                {" "}
-                / {usageSummary.credits.monthly}
-              </span>
-            </div>
-            <Progress
-              segments={[{ value: 100 - usageSummary.credits.percentageUsed }]}
-              className="mb-2"
-              color="#c15e50"
-            />
-            <p className="text-muted-foreground text-xs">
-              {usageSummary.credits.percentageUsed}% used this period
-            </p>
-          </Card>
-
-          {/* Usage Breakdown */}
-          <Card className="p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">
-                Usage Breakdown
-              </span>
-              <TrendingUp className="text-muted-foreground h-4 w-4" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Facts</span>
-                <span className="font-medium">
-                  {usageSummary.usage.episodes}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Searches</span>
-                <span className="font-medium">
-                  {usageSummary.usage.searches}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Chat</span>
-                <span className="font-medium">{usageSummary.usage.chat}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Billing Cycle */}
-          <Card className="p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">
-                Billing Cycle
-              </span>
-              <Calendar className="text-muted-foreground h-4 w-4" />
-            </div>
-            <div className="mb-2">
-              <span className="text-3xl font-bold">
-                {usageSummary.billingCycle.daysRemaining}
-              </span>
-              <span className="text-muted-foreground"> days left</span>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Resets on{" "}
-              {new Date(usageSummary.billingCycle.end).toLocaleDateString()}
-            </p>
-          </Card>
-        </div>
-
-        {/* Overage Warning */}
-        {usageSummary.credits.overage > 0 && (
-          <Card className="mt-4 border-orange-500 bg-orange-50 p-4 dark:bg-orange-950">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              <div>
-                <h3 className="font-semibold text-orange-900 dark:text-orange-100">
-                  Overage Usage Detected
-                </h3>
-                <p className="text-sm text-orange-700 dark:text-orange-300">
-                  You've used {usageSummary.credits.overage} additional credits
-                  beyond your monthly allocation.
-                  {usageSummary.overage.enabled &&
-                    usageSummary.overage.pricePerCredit && (
-                      <>
-                        {" "}
-                        This will cost $
-                        {(
-                          usageSummary.credits.overage *
-                          usageSummary.overage.pricePerCredit
-                        ).toFixed(2)}{" "}
-                        extra this month.
-                      </>
-                    )}
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Credits Card */}
+              <Card className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">Credits</span>
+                  <CreditCard className="text-muted-foreground h-4 w-4" />
+                </div>
+                <div className="mb-2">
+                  <span className="text-3xl font-bold">
+                    {usageSummary.credits.available}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    / {usageSummary.credits.monthly}
+                  </span>
+                </div>
+                <Progress
+                  segments={[
+                    { value: 100 - usageSummary.credits.percentageUsed },
+                  ]}
+                  className="mb-2"
+                  color="#c15e50"
+                />
+                <p className="text-muted-foreground text-xs">
+                  {usageSummary.credits.percentageUsed}% used this period
                 </p>
-              </div>
-            </div>
-          </Card>
-        )}
-      </div>
+              </Card>
 
-      {/* Plan Section */}
-      <div className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Plan</h2>
-          <Button variant="secondary" onClick={() => setShowPlansModal(true)}>
-            View All Plans
-          </Button>
-        </div>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <h3 className="text-xl font-bold">{usageSummary.plan.name}</h3>
-                <Badge
-                  variant={
-                    usageSummary.plan.type === "FREE" ? "secondary" : "default"
-                  }
-                  className="rounded"
-                >
-                  {usageSummary.plan.type}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                {usageSummary.credits.monthly} credits/month
-                {usageSummary.overage.enabled && (
-                  <> + ${usageSummary.overage.pricePerCredit}/credit overage</>
-                )}
-              </p>
-              {subscription?.status === "CANCELED" &&
-                subscription.planType !== "FREE" && (
-                  <div className="mt-3 flex items-start gap-2 rounded-md bg-orange-50 p-3 dark:bg-orange-950">
-                    <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600 dark:text-orange-400" />
-                    <p className="text-sm text-orange-700 dark:text-orange-300">
-                      Downgrading to FREE plan on{" "}
-                      <strong>
-                        {new Date(
-                          subscription.currentPeriodEnd,
-                        ).toLocaleDateString()}
-                      </strong>
-                      . Your current credits and plan will remain active until
-                      then.
-                    </p>
+              {/* Usage Breakdown */}
+              <Card className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">
+                    Usage Breakdown
+                  </span>
+                  <TrendingUp className="text-muted-foreground h-4 w-4" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Facts</span>
+                    <span className="font-medium">
+                      {usageSummary.usage.episodes}
+                    </span>
                   </div>
-                )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Searches</span>
+                    <span className="font-medium">
+                      {usageSummary.usage.searches}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Chat</span>
+                    <span className="font-medium">
+                      {usageSummary.usage.chat}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Billing Cycle */}
+              <Card className="p-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">
+                    Billing Cycle
+                  </span>
+                  <Calendar className="text-muted-foreground h-4 w-4" />
+                </div>
+                <div className="mb-2">
+                  <span className="text-3xl font-bold">
+                    {usageSummary.billingCycle.daysRemaining}
+                  </span>
+                  <span className="text-muted-foreground"> days left</span>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Resets on{" "}
+                  {new Date(usageSummary.billingCycle.end).toLocaleDateString()}
+                </p>
+              </Card>
             </div>
-          </div>
-        </Card>
-      </div>
 
-      {/* Invoices Section */}
-      <div className="mb-8">
-        <h2 className="mb-4 text-lg font-semibold">Invoices</h2>
-
-        {billingHistory.length === 0 ? (
-          <Card className="p-6">
-            <p className="text-muted-foreground text-center">No invoices yet</p>
-          </Card>
-        ) : (
-          <Card>
-            <div className="divide-y">
-              {billingHistory.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="flex items-center justify-between p-4"
-                >
+            {/* Overage Warning */}
+            {usageSummary.credits.overage > 0 && (
+              <Card className="mt-4 border-orange-500 bg-orange-50 p-4 dark:bg-orange-950">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   <div>
-                    <p className="font-medium">
-                      {new Date(invoice.periodStart).toLocaleDateString()} -{" "}
-                      {new Date(invoice.periodEnd).toLocaleDateString()}
+                    <h3 className="font-semibold text-orange-900 dark:text-orange-100">
+                      Overage Usage Detected
+                    </h3>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      You've used {usageSummary.credits.overage} additional
+                      credits beyond your monthly allocation.
+                      {usageSummary.overage.enabled &&
+                        usageSummary.overage.pricePerCredit && (
+                          <>
+                            {" "}
+                            This will cost $
+                            {(
+                              usageSummary.credits.overage *
+                              usageSummary.overage.pricePerCredit
+                            ).toFixed(2)}{" "}
+                            extra this month.
+                          </>
+                        )}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">
-                      ${invoice.totalAmount.toFixed(2)}
-                    </p>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Plan Section */}
+          <div className="mb-8">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Plan</h2>
+              <Button
+                variant="secondary"
+                onClick={() => setShowPlansModal(true)}
+              >
+                View All Plans
+              </Button>
+            </div>
+
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <h3 className="text-xl font-bold">
+                      {usageSummary.plan.name}
+                    </h3>
                     <Badge
                       variant={
-                        invoice.stripePaymentStatus === "paid"
-                          ? "default"
-                          : "destructive"
+                        usageSummary.plan.type === "FREE"
+                          ? "secondary"
+                          : "default"
                       }
                       className="rounded"
                     >
-                      {invoice.stripePaymentStatus || "pending"}
+                      {usageSummary.plan.type}
                     </Badge>
                   </div>
+                  <p className="text-muted-foreground text-sm">
+                    {usageSummary.credits.monthly} credits/month
+                    {usageSummary.overage.enabled && (
+                      <>
+                        {" "}
+                        + ${usageSummary.overage.pricePerCredit}/credit overage
+                      </>
+                    )}
+                  </p>
+                  {subscription?.status === "CANCELED" &&
+                    subscription.planType !== "FREE" && (
+                      <div className="mt-3 flex items-start gap-2 rounded-md bg-orange-50 p-3 dark:bg-orange-950">
+                        <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <p className="text-sm text-orange-700 dark:text-orange-300">
+                          Downgrading to FREE plan on{" "}
+                          <strong>
+                            {new Date(
+                              subscription.currentPeriodEnd,
+                            ).toLocaleDateString()}
+                          </strong>
+                          . Your current credits and plan will remain active
+                          until then.
+                        </p>
+                      </div>
+                    )}
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
-      </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Invoices Section */}
+          <div className="mb-8">
+            <h2 className="mb-4 text-lg font-semibold">Invoices</h2>
+
+            {billingHistory.length === 0 ? (
+              <Card className="p-6">
+                <p className="text-muted-foreground text-center">
+                  No invoices yet
+                </p>
+              </Card>
+            ) : (
+              <Card>
+                <div className="divide-y">
+                  {billingHistory.map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="flex items-center justify-between p-4"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {new Date(invoice.periodStart).toLocaleDateString()} -{" "}
+                          {new Date(invoice.periodEnd).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">
+                          ${invoice.totalAmount.toFixed(2)}
+                        </p>
+                        <Badge
+                          variant={
+                            invoice.stripePaymentStatus === "paid"
+                              ? "default"
+                              : "destructive"
+                          }
+                          className="rounded"
+                        >
+                          {invoice.stripePaymentStatus || "pending"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        </>
+      </SettingSection>
 
       {/* Plans Modal */}
       <Dialog open={showPlansModal} onOpenChange={setShowPlansModal}>
