@@ -361,6 +361,116 @@ export class SearchService {
     `;
     await runQuery(cypher2, { statementUuids: statementIds, userId });
   }
+
+  /**
+   * Enhanced search that includes compacted sessions
+   * This method searches both regular episodes/statements AND compacted sessions
+   * Compacted sessions are preferred when they have high confidence matches
+   */
+  public async searchWithCompacts(
+    query: string,
+    userId: string,
+    options: SearchOptions = {},
+    source?: string,
+  ): Promise<ExtendedSearchResult> {
+    const startTime = Date.now();
+
+    // First, run the standard search for episodes and facts
+    const standardResults = await this.search(query, userId, options, source);
+
+    // Search compacted sessions
+    try {
+      const queryVector = await this.getEmbedding(query);
+      const { searchCompactedSessionsByEmbedding } = await import(
+        "~/services/graphModels/compactedSession"
+      );
+
+      const compactResults = await searchCompactedSessionsByEmbedding(
+        queryVector,
+        userId,
+        options.limit || 10,
+        options.scoreThreshold || 0.7,
+      );
+
+      logger.info(`Found ${compactResults.length} matching compacted sessions`, {
+        query,
+        userId,
+      });
+
+      // Format compact results
+      const formattedCompacts = compactResults.map((result) => ({
+        summary: result.compact.summary,
+        sessionId: result.compact.sessionId,
+        episodeCount: result.compact.episodeCount,
+        confidence: result.compact.confidence,
+        relevantScore: result.score,
+      }));
+
+      // Log compact recall
+      await this.logCompactRecallAsync(
+        query,
+        userId,
+        compactResults,
+        Date.now() - startTime,
+        source,
+      ).catch((error) => {
+        logger.error("Failed to log compact recall event:", error);
+      });
+
+      return {
+        ...standardResults,
+        compacts: formattedCompacts,
+      };
+    } catch (error) {
+      logger.error("Error searching compacted sessions:", { error });
+      // Return standard results if compact search fails
+      return {
+        ...standardResults,
+        compacts: [],
+      };
+    }
+  }
+
+  /**
+   * Log recall event for compacted sessions
+   */
+  private async logCompactRecallAsync(
+    query: string,
+    userId: string,
+    compacts: Array<{ compact: any; score: number }>,
+    responseTime: number,
+    source?: string,
+  ): Promise<void> {
+    try {
+      const averageScore =
+        compacts.length > 0
+          ? compacts.reduce((sum, c) => sum + c.score, 0) / compacts.length
+          : 0;
+
+      await prisma.recallLog.create({
+        data: {
+          accessType: "search",
+          query,
+          targetType: "compacted_session",
+          searchMethod: "vector_similarity",
+          resultCount: compacts.length,
+          similarityScore: averageScore,
+          context: JSON.stringify({
+            compactedSessionSearch: true,
+          }),
+          source: source ?? "search_with_compacts",
+          responseTimeMs: responseTime,
+          userId,
+        },
+      });
+
+      logger.debug(
+        `Logged compact recall event for user ${userId}: ${compacts.length} compacts in ${responseTime}ms`,
+      );
+    } catch (error) {
+      logger.error("Error creating compact recall log entry:", { error });
+    }
+  }
 }
 
 /**
@@ -379,4 +489,24 @@ export interface SearchOptions {
   minResults?: number;
   spaceIds?: string[]; // Filter results by specific spaces
   adaptiveFiltering?: boolean;
+}
+
+/**
+ * Extended search result that includes compacted sessions
+ */
+export interface ExtendedSearchResult {
+  episodes: { content: string; createdAt: Date; spaceIds: string[] }[];
+  facts: {
+    fact: string;
+    validAt: Date;
+    invalidAt: Date | null;
+    relevantScore: number;
+  }[];
+  compacts?: {
+    summary: string;
+    sessionId: string;
+    episodeCount: number;
+    confidence: number;
+    relevantScore: number;
+  }[];
 }
