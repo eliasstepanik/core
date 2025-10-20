@@ -66,6 +66,7 @@ const EnvironmentSchema = z.object({
 
   //OpenAI
   OPENAI_API_KEY: z.string(),
+  ANTHROPIC_API_KEY: z.string().optional(),
 
   EMAIL_TRANSPORT: z.string().optional(),
   FROM_EMAIL: z.string().optional(),

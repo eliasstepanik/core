@@ -10,6 +10,7 @@ import { prisma } from "../utils/prisma";
 import { EpisodeType } from "@core/types";
 import { deductCredits, hasCredits } from "../utils/utils";
 import { assignEpisodesToSpace } from "~/services/graphModels/space";
+import { triggerSessionCompaction } from "../session/session-compaction";
 
 export const IngestBodyRequest = z.object({
   episodeBody: z.string(),
@@ -199,6 +200,30 @@ export const ingestTask = task({
           error: assignmentError,
           userId: payload.userId,
           episodeId: episodeDetails?.episodeUuid,
+        });
+      }
+
+      // Auto-trigger session compaction if episode has sessionId
+      try {
+        if (episodeBody.sessionId && currentStatus === IngestionStatus.COMPLETED) {
+          logger.info(`Checking if session compaction should be triggered`, {
+            userId: payload.userId,
+            sessionId: episodeBody.sessionId,
+            source: episodeBody.source,
+          });
+
+          await triggerSessionCompaction({
+            userId: payload.userId,
+            sessionId: episodeBody.sessionId,
+            source: episodeBody.source,
+          });
+        }
+      } catch (compactionError) {
+        // Don't fail the ingestion if compaction fails
+        logger.warn(`Failed to trigger session compaction after ingestion:`, {
+          error: compactionError,
+          userId: payload.userId,
+          sessionId: episodeBody.sessionId,
         });
       }
 
