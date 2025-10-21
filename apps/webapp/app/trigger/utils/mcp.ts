@@ -121,13 +121,10 @@ export class MCP {
   }
 
   async callTool(name: string, parameters: any) {
-    console.log(name, parameters);
     const response = await this.client.callTool({
       name,
       arguments: parameters,
     });
-
-    console.log(response);
 
     return response;
   }
