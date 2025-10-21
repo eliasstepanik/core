@@ -20,6 +20,7 @@ export const SearchBodyRequest = z.object({
   scoreThreshold: z.number().optional(),
   minResults: z.number().optional(),
   adaptiveFiltering: z.boolean().optional(),
+  structured: z.boolean().optional(),
 });
 
 const searchService = new SearchService();
@@ -47,6 +48,7 @@ const { action, loader } = createHybridActionApiRoute(
         minResults: body.minResults,
         spaceIds: body.spaceIds,
         adaptiveFiltering: body.adaptiveFiltering,
+        structured: body.structured,
       },
     );
     return json(results);

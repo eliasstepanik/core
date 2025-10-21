@@ -27,7 +27,7 @@ const CompactionResultSchema = z.object({
 });
 
 const CONFIG = {
-  minEpisodesForCompaction: 3, // Minimum episodes to trigger compaction
+  minEpisodesForCompaction: 5, // Minimum episodes to trigger compaction
   compactionThreshold: 1, // Trigger after N new episodes
   maxEpisodesPerBatch: 50, // Process in batches if needed
 };
@@ -52,10 +52,7 @@ export const sessionCompactionTask = task({
 
     try {
       // Check if compaction already exists
-      // const existingCompact = await getCompactedSessionBySessionId(sessionId, userId);
-      const existingCompact = {} as CompactedSessionNode;
-
-      
+      const existingCompact = await getCompactedSessionBySessionId(sessionId, userId);
 
       // Fetch all episodes for this session
       const episodes = await getSessionEpisodes(sessionId, userId, existingCompact?.endTime);
@@ -87,10 +84,9 @@ export const sessionCompactionTask = task({
       }
 
       // Generate or update compaction
-      const compactionResult = await createCompaction(sessionId, episodes, userId, source)
-      // const compactionResult = existingCompact
-      //   ? await updateCompaction(existingCompact, episodes, userId)
-      //   : await createCompaction(sessionId, episodes, userId, source);
+      const compactionResult = existingCompact
+        ? await updateCompaction(existingCompact, episodes, userId)
+        : await createCompaction(sessionId, episodes, userId, source);
 
       logger.info(`Session compaction completed`, {
         sessionId,
