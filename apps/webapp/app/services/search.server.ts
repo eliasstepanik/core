@@ -25,15 +25,20 @@ export class SearchService {
    * @param query The search query
    * @param userId The user ID for personalization
    * @param options Search options
-   * @returns Array of relevant statements
+   * @returns Markdown formatted context (default) or structured JSON (if structured: true)
    */
   public async search(
     query: string,
     userId: string,
     options: SearchOptions = {},
     source?: string,
-  ): Promise<{
-    episodes: {content: string; createdAt: Date; spaceIds: string[]}[];
+  ): Promise<string | {
+    episodes: {
+      content: string;
+      createdAt: Date;
+      spaceIds: string[];
+      isCompact?: boolean;
+    }[];
     facts: {
       fact: string;
       validAt: Date;
@@ -57,6 +62,7 @@ export class SearchService {
       minResults: options.minResults || 10,
       spaceIds: options.spaceIds || [],
       adaptiveFiltering: options.adaptiveFiltering || false,
+      structured: options.structured || false,
     };
 
     const queryVector = await this.getEmbedding(query);
@@ -107,19 +113,26 @@ export class SearchService {
       filteredResults.map((item) => item.statement),
     );
 
-    return {
-      episodes: episodes.map((episode) => ({
-        content: episode.originalContent,
-        createdAt: episode.createdAt,
-        spaceIds: episode.spaceIds || [],
-      })),
-      facts: filteredResults.map((statement) => ({
-        fact: statement.statement.fact,
-        validAt: statement.statement.validAt,
-        invalidAt: statement.statement.invalidAt || null,
-        relevantScore: statement.score,
-      })),
-    };
+    // Replace session episodes with compacts automatically
+    const unifiedEpisodes = await this.replaceWithCompacts(episodes, userId);
+
+    const factsData = filteredResults.map((statement) => ({
+      fact: statement.statement.fact,
+      validAt: statement.statement.validAt,
+      invalidAt: statement.statement.invalidAt || null,
+      relevantScore: statement.score,
+    }));
+
+    // Return markdown by default, structured JSON if requested
+    if (opts.structured) {
+      return {
+        episodes: unifiedEpisodes,
+        facts: factsData,
+      };
+    }
+
+    // Return markdown formatted context
+    return this.formatAsMarkdown(unifiedEpisodes, factsData);
   }
 
   /**
@@ -363,114 +376,175 @@ export class SearchService {
   }
 
   /**
-   * Enhanced search that includes compacted sessions
-   * This method searches both regular episodes/statements AND compacted sessions
-   * Compacted sessions are preferred when they have high confidence matches
+   * Format search results as markdown for agent consumption
    */
-  public async searchWithCompacts(
-    query: string,
-    userId: string,
-    options: SearchOptions = {},
-    source?: string,
-  ): Promise<ExtendedSearchResult> {
-    const startTime = Date.now();
+  private formatAsMarkdown(
+    episodes: Array<{
+      content: string;
+      createdAt: Date;
+      spaceIds: string[];
+      isCompact?: boolean;
+    }>,
+    facts: Array<{
+      fact: string;
+      validAt: Date;
+      invalidAt: Date | null;
+      relevantScore: number;
+    }>,
+  ): string {
+    const sections: string[] = [];
 
-    // First, run the standard search for episodes and facts
-    const standardResults = await this.search(query, userId, options, source);
+    // Add episodes/compacts section
+    if (episodes.length > 0) {
+      sections.push("## Recalled Relevant Context\n");
 
-    // Search compacted sessions
-    try {
-      const queryVector = await this.getEmbedding(query);
-      const { searchCompactedSessionsByEmbedding } = await import(
-        "~/services/graphModels/compactedSession"
-      );
+      episodes.forEach((episode, index) => {
+        const date = episode.createdAt.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
-      const compactResults = await searchCompactedSessionsByEmbedding(
-        queryVector,
-        userId,
-        options.limit || 10,
-        options.scoreThreshold || 0.7,
-      );
-
-      logger.info(`Found ${compactResults.length} matching compacted sessions`, {
-        query,
-        userId,
+        if (episode.isCompact) {
+          sections.push(`### 📦 Session Compact`);
+          sections.push(`**Created**: ${date}\n`);
+          sections.push(episode.content);
+          sections.push(""); // Empty line
+        } else {
+          sections.push(`### Episode ${index + 1}`);
+          sections.push(`**Created**: ${date}`);
+          if (episode.spaceIds.length > 0) {
+            sections.push(`**Spaces**: ${episode.spaceIds.join(", ")}`);
+          }
+          sections.push(""); // Empty line before content
+          sections.push(episode.content);
+          sections.push(""); // Empty line after
+        }
       });
-
-      // Format compact results
-      const formattedCompacts = compactResults.map((result) => ({
-        summary: result.compact.summary,
-        sessionId: result.compact.sessionId,
-        episodeCount: result.compact.episodeCount,
-        confidence: result.compact.confidence,
-        relevantScore: result.score,
-      }));
-
-      // Log compact recall
-      await this.logCompactRecallAsync(
-        query,
-        userId,
-        compactResults,
-        Date.now() - startTime,
-        source,
-      ).catch((error) => {
-        logger.error("Failed to log compact recall event:", error);
-      });
-
-      return {
-        ...standardResults,
-        compacts: formattedCompacts,
-      };
-    } catch (error) {
-      logger.error("Error searching compacted sessions:", { error });
-      // Return standard results if compact search fails
-      return {
-        ...standardResults,
-        compacts: [],
-      };
     }
+
+    // Add facts section
+    if (facts.length > 0) {
+      sections.push("## Key Facts\n");
+
+      facts.forEach((fact) => {
+        const validDate = fact.validAt.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        const invalidInfo = fact.invalidAt
+          ? ` → Invalidated ${fact.invalidAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+          : "";
+
+        sections.push(`- ${fact.fact}`);
+        sections.push(`  *Valid from ${validDate}${invalidInfo}*`);
+      });
+      sections.push(""); // Empty line after facts
+    }
+
+    // Handle empty results
+    if (episodes.length === 0 && facts.length === 0) {
+      sections.push("*No relevant memories found.*\n");
+    }
+
+    return sections.join("\n");
   }
 
   /**
-   * Log recall event for compacted sessions
+   * Replace session episodes with their compacted sessions
+   * Returns unified array with both regular episodes and compacts
    */
-  private async logCompactRecallAsync(
-    query: string,
+  private async replaceWithCompacts(
+    episodes: EpisodicNode[],
     userId: string,
-    compacts: Array<{ compact: any; score: number }>,
-    responseTime: number,
-    source?: string,
-  ): Promise<void> {
-    try {
-      const averageScore =
-        compacts.length > 0
-          ? compacts.reduce((sum, c) => sum + c.score, 0) / compacts.length
-          : 0;
+  ): Promise<Array<{
+    content: string;
+    createdAt: Date;
+    spaceIds: string[];
+    isCompact?: boolean;
+  }>> {
+    // Group episodes by sessionId
+    const sessionEpisodes = new Map<string, EpisodicNode[]>();
+    const nonSessionEpisodes: EpisodicNode[] = [];
 
-      await prisma.recallLog.create({
-        data: {
-          accessType: "search",
-          query,
-          targetType: "compacted_session",
-          searchMethod: "vector_similarity",
-          resultCount: compacts.length,
-          similarityScore: averageScore,
-          context: JSON.stringify({
-            compactedSessionSearch: true,
-          }),
-          source: source ?? "search_with_compacts",
-          responseTimeMs: responseTime,
-          userId,
-        },
-      });
+    for (const episode of episodes) {
+      // Skip episodes with documentId (these are document chunks, not session episodes)
+      if (episode.metadata?.documentUuid) {
+        nonSessionEpisodes.push(episode);
+        continue;
+      }
 
-      logger.debug(
-        `Logged compact recall event for user ${userId}: ${compacts.length} compacts in ${responseTime}ms`,
-      );
-    } catch (error) {
-      logger.error("Error creating compact recall log entry:", { error });
+      // Episodes with sessionId - group them
+      if (episode.sessionId) {
+        if (!sessionEpisodes.has(episode.sessionId)) {
+          sessionEpisodes.set(episode.sessionId, []);
+        }
+        sessionEpisodes.get(episode.sessionId)!.push(episode);
+      } else {
+        // No sessionId - keep as regular episode
+        nonSessionEpisodes.push(episode);
+      }
     }
+
+    // Build unified result array
+    const result: Array<{
+      content: string;
+      createdAt: Date;
+      spaceIds: string[];
+      isCompact?: boolean;
+    }> = [];
+
+    // Add non-session episodes first
+    for (const episode of nonSessionEpisodes) {
+      result.push({
+        content: episode.originalContent,
+        createdAt: episode.createdAt,
+        spaceIds: episode.spaceIds || [],
+      });
+    }
+
+    // Check each session for compacts
+    const { getCompactedSessionBySessionId } = await import(
+      "~/services/graphModels/compactedSession"
+    );
+
+    const sessionIds = Array.from(sessionEpisodes.keys());
+
+    for (const sessionId of sessionIds) {
+      const sessionEps = sessionEpisodes.get(sessionId)!;
+      const compact = await getCompactedSessionBySessionId(sessionId, userId);
+
+      if (compact) {
+        // Compact exists - add compact as episode, skip original episodes
+        result.push({
+          content: compact.summary,
+          createdAt: compact.startTime, // Use session start time
+          spaceIds: [], // Compacts don't have spaceIds directly
+          isCompact: true,
+        });
+
+        logger.info(`Replaced ${sessionEps.length} episodes with compact`, {
+          sessionId,
+          episodeCount: sessionEps.length,
+        });
+      } else {
+        // No compact - add original episodes
+        for (const episode of sessionEps) {
+          result.push({
+            content: episode.originalContent,
+            createdAt: episode.createdAt,
+            spaceIds: episode.spaceIds || [],
+          });
+        }
+      }
+    }
+
+    return result;
   }
+
 }
 
 /**
@@ -489,24 +563,5 @@ export interface SearchOptions {
   minResults?: number;
   spaceIds?: string[]; // Filter results by specific spaces
   adaptiveFiltering?: boolean;
-}
-
-/**
- * Extended search result that includes compacted sessions
- */
-export interface ExtendedSearchResult {
-  episodes: { content: string; createdAt: Date; spaceIds: string[] }[];
-  facts: {
-    fact: string;
-    validAt: Date;
-    invalidAt: Date | null;
-    relevantScore: number;
-  }[];
-  compacts?: {
-    summary: string;
-    sessionId: string;
-    episodeCount: number;
-    confidence: number;
-    relevantScore: number;
-  }[];
+  structured?: boolean; // Return structured JSON instead of markdown (default: false)
 }
