@@ -17,7 +17,7 @@ export const StreamingConversation = ({
   afterStreaming,
   apiURL,
 }: StreamingConversationProps) => {
-  const { message, isEnd } = useTriggerStream(runId, token, apiURL);
+  const { message } = useTriggerStream(runId, token, apiURL, afterStreaming);
   const [loadingText, setLoadingText] = React.useState("Thinking...");
 
   const loadingMessages = [
@@ -47,13 +47,6 @@ export const StreamingConversation = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message]);
-
-  React.useEffect(() => {
-    if (isEnd) {
-      afterStreaming();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnd]);
 
   React.useEffect(() => {
     let currentIndex = 0;

@@ -2,25 +2,20 @@ import { NodeViewWrapper } from "@tiptap/react";
 
 import React from "react";
 
-import { getIcon as iconUtil, type IconType } from "../../icon-utils";
-
-import { ChevronDown, ChevronRight } from "lucide-react";
+import StaticLogo from "~/components/logo/logo";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SkillComponent = (props: any) => {
   const id = props.node.attrs.id;
   const name = props.node.attrs.name;
   const agent = props.node.attrs.agent;
-  const [open, setOpen] = React.useState(false);
 
   if (id === "undefined" || id === undefined || !name) {
     return null;
   }
 
   const getIcon = () => {
-    const Icon = iconUtil(agent as IconType);
-
-    return <Icon size={18} className="rounded-sm" />;
+    return <StaticLogo size={18} className="rounded-sm" />;
   };
 
   const snakeToTitleCase = (input: string): string => {
@@ -46,7 +41,7 @@ export const SkillComponent = (props: any) => {
       <>
         <div className="bg-grayAlpha-100 text-sm-md mt-0.5 flex w-fit items-center gap-2 rounded p-2">
           {getIcon()}
-          <span className="font-mono text-sm">{snakeToTitleCase(name)}</span>
+          <span className="font-mono text-sm">{snakeToTitleCase(agent)}</span>
         </div>
       </>
     );

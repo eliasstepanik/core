@@ -529,6 +529,9 @@ importers:
       emails:
         specifier: workspace:*
         version: link:../../packages/emails
+      eventsource:
+        specifier: ^4.0.0
+        version: 4.0.0
       exa-js:
         specifier: ^1.8.20
         version: 1.8.20(encoding@0.1.13)(ws@8.18.3)
@@ -7779,6 +7782,10 @@ packages:
   eventsource@3.0.7:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
+
+  eventsource@4.0.0:
+    resolution: {integrity: sha512-fvIkb9qZzdMxgZrEQDyll+9oJsyaVvY92I2Re+qK0qEJ+w5s0X3dtz+M0VAPOjP1gtU3iqWyjQ0G3nvd5CLZ2g==}
+    engines: {node: '>=20.0.0'}
 
   evt@2.5.9:
     resolution: {integrity: sha512-GpjX476FSlttEGWHT8BdVMoI8wGXQGbEOtKcP4E+kggg+yJzXBZN2n4x7TS/zPBJ1DZqWI+rguZZApjjzQ0HpA==}
@@ -21228,6 +21235,10 @@ snapshots:
   eventsource-parser@3.0.3: {}
 
   eventsource@3.0.7:
+    dependencies:
+      eventsource-parser: 3.0.3
+
+  eventsource@4.0.0:
     dependencies:
       eventsource-parser: 3.0.3
 

@@ -5,11 +5,11 @@ import { Paragraph } from "@tiptap/extension-paragraph";
 import { Text } from "@tiptap/extension-text";
 import { type Editor } from "@tiptap/react";
 import { EditorContent, Placeholder, EditorRoot } from "novel";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { cn } from "~/lib/utils";
 import { Button } from "../ui";
 import { LoaderCircle } from "lucide-react";
-import { Form, useSubmit } from "@remix-run/react";
+import { Form, useSubmit, useActionData } from "@remix-run/react";
 
 interface ConversationTextareaProps {
   defaultValue?: string;
@@ -19,6 +19,7 @@ interface ConversationTextareaProps {
   className?: string;
   onChange?: (text: string) => void;
   disabled?: boolean;
+  onConversationCreated?: (conversation: any) => void;
 }
 
 export function ConversationTextarea({
@@ -27,10 +28,18 @@ export function ConversationTextarea({
   placeholder,
   conversationId,
   onChange,
+  onConversationCreated,
 }: ConversationTextareaProps) {
   const [text, setText] = useState(defaultValue ?? "");
   const [editor, setEditor] = useState<Editor>();
   const submit = useSubmit();
+  const actionData = useActionData<{ conversation?: any }>();
+
+  useEffect(() => {
+    if (actionData?.conversation && onConversationCreated) {
+      onConversationCreated(actionData.conversation);
+    }
+  }, [actionData]);
 
   const onUpdate = (editor: Editor) => {
     setText(editor.getHTML());
@@ -44,17 +53,18 @@ export function ConversationTextarea({
 
     const data = isLoading ? {} : { message: text, conversationId };
 
+    // When conversationId exists and not stopping, submit to current route
+    // When isLoading (stopping), submit to the specific conversation route
     submit(data as any, {
       action: isLoading
         ? `/home/conversation/${conversationId}`
-        : "/home/conversation",
+        : conversationId
+          ? `/home/conversation/${conversationId}`
+          : "/home/conversation",
       method: "post",
     });
 
     editor?.commands.clearContent(true);
-    setText("");
-
-    editor.commands.clearContent(true);
     setText("");
   }, [editor, text]);
 
@@ -68,7 +78,9 @@ export function ConversationTextarea({
       submit(data as any, {
         action: isLoading
           ? `/home/conversation/${conversationId}`
-          : "/home/conversation",
+          : conversationId
+            ? `/home/conversation/${conversationId}`
+            : "/home/conversation",
         method: "post",
       });
 

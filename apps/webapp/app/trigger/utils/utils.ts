@@ -5,7 +5,6 @@ import {
   type IntegrationDefinitionV2,
   type Prisma,
   UserType,
-  type UserUsage,
   type Workspace,
 } from "@prisma/client";
 
@@ -16,7 +15,6 @@ import { type HistoryStep } from "./types";
 import axios from "axios";
 import nodeCrypto from "node:crypto";
 import { customAlphabet, nanoid } from "nanoid";
-import { Exa } from "exa-js";
 import { prisma } from "./prisma";
 import { BILLING_CONFIG, isBillingEnabled } from "~/config/billing.server";
 
@@ -177,37 +175,20 @@ export const init = async ({ payload }: { payload: InitChatPayload }) => {
     where: { id: workspace.userId as string },
   });
 
-  const integrationAccounts = await prisma.integrationAccount.findMany({
-    where: {
-      workspaceId: workspace.id,
-    },
-    include: { integrationDefinition: true },
-  });
-
   // Set up axios interceptor for memory operations
   axios.interceptors.request.use((config) => {
     if (config.url?.startsWith("https://core::memory")) {
       // Handle both search and ingest endpoints
-      if (config.url.includes("/search")) {
-        config.url = `${process.env.API_BASE_URL}/api/v1/search`;
-      } else if (config.url.includes("/add")) {
-        config.url = `${process.env.API_BASE_URL}/api/v1/add`;
-      }
+      config.url = config.url.replace(
+        "https://core::memory",
+        process.env.API_BASE_URL ?? "",
+      );
+
       config.headers.Authorization = `Bearer ${pat.token}`;
     }
 
     return config;
   });
-  // Create MCP server for each integration account
-  const mcpServers: string[] = integrationAccounts
-    .map((account) => {
-      const integrationConfig = account.integrationConfiguration as any;
-      if (integrationConfig.mcp) {
-        return account.integrationDefinition.slug;
-      }
-      return undefined;
-    })
-    .filter((slug): slug is string => slug !== undefined);
 
   return {
     conversation,
@@ -216,7 +197,6 @@ export const init = async ({ payload }: { payload: InitChatPayload }) => {
     token: pat.token,
     userId: user?.id,
     userName: user?.name,
-    mcpServers,
   };
 };
 

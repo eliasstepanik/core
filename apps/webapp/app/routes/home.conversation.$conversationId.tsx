@@ -5,11 +5,18 @@ import {
 import { sort } from "fast-sort";
 
 import { useParams, useRevalidator, useNavigate } from "@remix-run/react";
-import { requireUser, requireWorkpace } from "~/services/session.server";
+import { parse } from "@conform-to/zod";
+import {
+  requireUserId,
+  requireUser,
+  requireWorkpace,
+} from "~/services/session.server";
 import {
   getConversationAndHistory,
   getCurrentConversationRun,
   stopConversation,
+  createConversation,
+  CreateConversationSchema,
 } from "~/services/conversation.server";
 import { type ConversationHistory } from "@core/database";
 import {
@@ -49,16 +56,39 @@ export async function action({ params, request }: ActionFunctionArgs) {
   if (request.method.toUpperCase() !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
+
+  const userId = await requireUserId(request);
   const workspace = await requireWorkpace(request);
-  // params.conversationId will be available here
+  const formData = await request.formData();
   const { conversationId } = params;
 
   if (!conversationId) {
     throw new Error("No conversation");
   }
 
-  const result = await stopConversation(conversationId, workspace.id);
-  return json(result);
+  // Check if this is a stop request (isLoading = true means stop button was clicked)
+  const message = formData.get("message");
+
+  // If no message, it's a stop request
+  if (!message) {
+    const result = await stopConversation(conversationId, workspace.id);
+    return json(result);
+  }
+
+  // Otherwise, create a new conversation message
+  const submission = parse(formData, { schema: CreateConversationSchema });
+
+  if (!submission.value || submission.intent !== "submit") {
+    return json(submission);
+  }
+
+  const conversation = await createConversation(workspace?.id, userId, {
+    message: submission.value.message,
+    title: submission.value.title,
+    conversationId: submission.value.conversationId,
+  });
+
+  return json({ conversation });
 }
 
 // Accessing params in the component
@@ -72,7 +102,6 @@ export default function SingleConversation() {
 
   const { conversationId } = useParams();
   const revalidator = useRevalidator();
-
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -97,20 +126,15 @@ export default function SingleConversation() {
     // Filter out any conversation history items that come after the lastConversationHistoryId
     const filteredConversationHistory = lastConversationHistoryId
       ? sortedConversationHistory.filter((_ch, currentIndex: number) => {
-          // Find the index of the last conversation history
-
-          // Only keep items that come before or are the last conversation history
           return currentIndex <= lastIndex;
         })
       : sortedConversationHistory;
 
     return (
       <>
-        {filteredConversationHistory.map(
-          (ch: ConversationHistory, index: number) => {
-            return <ConversationItem key={index} conversationHistory={ch} />;
-          },
-        )}
+        {filteredConversationHistory.map((ch: ConversationHistory) => {
+          return <ConversationItem key={ch.id} conversationHistory={ch} />;
+        })}
       </>
     );
   };
@@ -155,7 +179,7 @@ export default function SingleConversation() {
           </ScrollAreaWithAutoScroll>
 
           <div className="flex w-full flex-col items-center">
-            <div className="w-full max-w-[97ch] px-1 pr-2">
+            <div className="w-full max-w-[80ch] px-1 pr-2">
               {conversation?.status !== "need_approval" && (
                 <ConversationTextarea
                   conversationId={conversationId as string}
@@ -163,6 +187,16 @@ export default function SingleConversation() {
                   isLoading={
                     !!conversationResponse || conversation?.status === "running"
                   }
+                  onConversationCreated={(conversation) => {
+                    if (conversation) {
+                      setConversationResponse({
+                        conversationHistoryId:
+                          conversation.conversationHistoryId,
+                        id: conversation.id,
+                        token: conversation.token,
+                      });
+                    }
+                  }}
                 />
               )}
             </div>

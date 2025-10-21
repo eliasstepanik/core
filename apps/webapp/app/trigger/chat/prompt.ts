@@ -72,7 +72,6 @@ MEMORY USAGE:
 </memory>
 
 <external_services>
-- Available integrations: {{AVAILABLE_MCP_TOOLS}}
 - To use: load_mcp with EXACT integration name from the available list
 - Can load multiple at once with an array
 - Only load when tools are NOT already available in your current toolset

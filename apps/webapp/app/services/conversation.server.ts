@@ -149,6 +149,7 @@ export async function getCurrentConversationRun(
       conversation: {
         workspaceId,
       },
+      userType: UserTypeEnum.User,
     },
     orderBy: {
       updatedAt: "desc",
@@ -160,12 +161,17 @@ export async function getCurrentConversationRun(
   }
 
   const response = await runs.list({
-    tag: [conversationId, conversationHistory.id],
+    tag: [conversationId, conversationHistory.id, workspaceId],
     status: ["QUEUED", "EXECUTING"],
     limit: 1,
   });
 
-  const run = response.data[0];
+  if (!response) {
+    return undefined;
+  }
+
+  const run = response?.data?.[0];
+
   if (!run) {
     return undefined;
   }
@@ -290,7 +296,9 @@ export const GetConversationsListSchema = z.object({
   search: z.string().optional(),
 });
 
-export type GetConversationsListDto = z.infer<typeof GetConversationsListSchema>;
+export type GetConversationsListDto = z.infer<
+  typeof GetConversationsListSchema
+>;
 
 export async function getConversationsList(
   workspaceId: string,

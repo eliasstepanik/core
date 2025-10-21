@@ -52,12 +52,11 @@ export const chat = task({
 
       const { previousHistory, ...otherData } = payload.context;
 
-      const { agents = [] } = payload.context;
       // Initialise mcp
       const mcpHeaders = { Authorization: `Bearer ${init?.token}` };
       const mcp = new MCP();
       await mcp.init();
-      await mcp.load(agents, mcpHeaders);
+      await mcp.load(mcpHeaders);
 
       // Prepare context with additional metadata
       const context = {
@@ -93,8 +92,6 @@ export const chat = task({
         previousExecutionHistory,
         mcp,
         stepHistory,
-        init?.mcpServers ?? [],
-        mcpHeaders,
       );
 
       const stream = await metadata.stream("messages", llmResponse);
@@ -142,6 +139,7 @@ export const chat = task({
         await deletePersonalAccessToken(init.tokenId);
       }
     } catch (e) {
+      console.log(e);
       await updateConversationStatus("failed", payload.conversationId);
       if (init?.tokenId) {
         await deletePersonalAccessToken(init.tokenId);
