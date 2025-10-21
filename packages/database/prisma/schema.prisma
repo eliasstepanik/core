@@ -25,7 +25,7 @@ model Activity {
 
   rejectionReason String?
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
 
   WebhookDeliveryLog WebhookDeliveryLog[]
@@ -55,10 +55,10 @@ model Conversation {
   unread Boolean @default(false)
 
   title  String?
-  user   User    @relation(fields: [userId], references: [id])
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String?
 
   status String @default("pending") // Can be "pending", "running", "completed", "failed", "need_attention"
@@ -102,7 +102,7 @@ model ConversationHistory {
   context Json?
 
   thoughts Json?
-  user     User?   @relation(fields: [userId], references: [id])
+  user     User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   String?
 
   conversation              Conversation                @relation(fields: [conversationId], references: [id])
@@ -122,7 +122,7 @@ model IngestionQueue {
   type String?
 
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   activity   Activity? @relation(fields: [activityId], references: [id])
   activityId String?
@@ -148,10 +148,10 @@ model IngestionRule {
   source   String // Source/integration this rule applies to (mandatory)
   isActive Boolean @default(true) // Enable/disable rule (mandatory)
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 }
 
@@ -166,11 +166,11 @@ model IntegrationAccount {
   settings                 Json?
   isActive                 Boolean @default(true)
 
-  integratedBy            User                    @relation(references: [id], fields: [integratedById])
+  integratedBy            User                    @relation(references: [id], fields: [integratedById], onDelete: Cascade)
   integratedById          String
   integrationDefinition   IntegrationDefinitionV2 @relation(references: [id], fields: [integrationDefinitionId])
   integrationDefinitionId String
-  workspace               Workspace               @relation(references: [id], fields: [workspaceId])
+  workspace               Workspace               @relation(references: [id], fields: [workspaceId], onDelete: Cascade)
   workspaceId             String
   Activity                Activity[]
   oauthIntegrationGrants  OAuthIntegrationGrant[]
@@ -193,7 +193,7 @@ model IntegrationDefinitionV2 {
   version     String?
   url         String?
 
-  workspace   Workspace? @relation(references: [id], fields: [workspaceId])
+  workspace   Workspace? @relation(references: [id], fields: [workspaceId], onDelete: Cascade)
   workspaceId String?
 
   IntegrationAccount IntegrationAccount[]
@@ -213,7 +213,7 @@ model MCPSession {
   source       String
   integrations String[]
 
-  workspace   Workspace? @relation(references: [id], fields: [workspaceId])
+  workspace   Workspace? @relation(references: [id], fields: [workspaceId], onDelete: Cascade)
   workspaceId String?
 
   createdAt DateTime  @default(now())
@@ -304,7 +304,7 @@ model OAuthClient {
   workspaceId String?
 
   // Created by user (for audit trail)
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
   // Relations
@@ -330,7 +330,7 @@ model OAuthClientInstallation {
   workspaceId String
 
   // Installation metadata
-  installedBy   User      @relation(fields: [installedById], references: [id])
+  installedBy   User      @relation(fields: [installedById], references: [id], onDelete: Cascade)
   installedById String
   installedAt   DateTime  @default(now())
   uninstalledAt DateTime?
@@ -454,10 +454,10 @@ model RecallLog {
   responseTimeMs Int? // Response time in milliseconds
 
   // Relations
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String?
 
   conversation   Conversation? @relation(fields: [conversationId], references: [id])
@@ -485,7 +485,7 @@ model Space {
   contextCountAtLastTrigger Int? // Context count when pattern was last triggered
 
   // Relations
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
 
   createdAt      DateTime         @default(now())
@@ -584,7 +584,7 @@ model UserUsage {
   searchCreditsUsed  Int @default(0)
   chatCreditsUsed    Int @default(0)
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @unique
 }
 
@@ -596,7 +596,7 @@ model WebhookConfiguration {
   eventTypes  String[] // List of event types this webhook is interested in, e.g. ["activity.created"]
   user        User?      @relation(fields: [userId], references: [id])
   userId      String?
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -652,7 +652,7 @@ model Subscription {
   overageAmount      Float @default(0)
 
   // Relations
-  workspace      Workspace        @relation(fields: [workspaceId], references: [id])
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId    String           @unique
   BillingHistory BillingHistory[]
 }
@@ -697,7 +697,7 @@ model Workspace {
   integrations String[]
 
   userId                  String?                   @unique
-  user                    User?                     @relation(fields: [userId], references: [id])
+  user                    User?                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   IngestionQueue          IngestionQueue[]
   IntegrationAccount      IntegrationAccount[]
   IntegrationDefinitionV2 IntegrationDefinitionV2[]
