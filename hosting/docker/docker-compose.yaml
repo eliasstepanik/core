@@ -131,7 +131,7 @@ services:
 
   webapp:
     container_name: trigger-webapp
-    image: ghcr.io/triggerdotdev/trigger.dev@sha256:a19c438f348ac05c939f39ed455ed27b4f189f720b4c9810aef8e71fdc731211
+    image: ghcr.io/triggerdotdev/trigger.dev@sha256:78d34885ffef89cb4e53acaebf95c5bea580c0457a07d1a0ac08396a9b6f791d
     restart: ${RESTART_POLICY:-unless-stopped}
     logging: *logging-config
     ports:
