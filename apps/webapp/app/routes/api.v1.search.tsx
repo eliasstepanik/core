@@ -20,7 +20,7 @@ export const SearchBodyRequest = z.object({
   scoreThreshold: z.number().optional(),
   minResults: z.number().optional(),
   adaptiveFiltering: z.boolean().optional(),
-  structured: z.boolean().optional(),
+  structured: z.boolean().default(true),
 });
 
 const searchService = new SearchService();
