@@ -4,7 +4,6 @@ import { jsonSchema, tool, type ToolSet } from "ai";
 import * as fs from "fs";
 import * as path from "path";
 
-import { type MCPTool } from "./types";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { prisma } from "./prisma";
 
@@ -66,7 +65,7 @@ export const configureStdioMCPEnvironment = (
 
 export class MCP {
   private Client: any;
-  private clients: Record<string, any> = {};
+  private client: any = {};
 
   constructor() {}
 
@@ -81,68 +80,38 @@ export class MCP {
     return Client;
   }
 
-  async load(agents: string[], headers: any) {
-    await Promise.all(
-      agents.map(async (agent) => {
-        return await this.connectToServer(
-          agent,
-          `${process.env.API_BASE_URL}/api/v1/mcp/${agent}`,
-          headers,
-        );
-      }),
+  async load(headers: any) {
+    return await this.connectToServer(
+      `${process.env.API_BASE_URL}/api/v1/mcp?source=core`,
+      headers,
     );
   }
 
   async allTools(): Promise<ToolSet> {
-    const clientEntries = Object.entries(this.clients);
+    try {
+      const { tools } = await this.client.listTools();
 
-    // Fetch all tools in parallel
-    const toolsArrays = await Promise.all(
-      clientEntries.map(async ([clientKey, client]) => {
-        try {
-          const { tools } = await client.listTools();
-          return tools.map(({ name, description, inputSchema }: any) => [
-            `${clientKey}--${name}`,
-            tool({
-              description,
-              parameters: jsonSchema(inputSchema),
-            }),
-          ]);
-        } catch (error) {
-          logger.error(`Error fetching tools for ${clientKey}:`, { error });
-          return [];
-        }
-      }),
-    );
+      const finalTools: ToolSet = {};
 
-    // Flatten and convert to object
-    return Object.fromEntries(toolsArrays.flat());
-  }
+      tools.map(({ name, description, inputSchema }: any) => {
+        finalTools[name] = tool({
+          description,
+          parameters: jsonSchema(inputSchema),
+        });
+      });
 
-  async tools(): Promise<MCPTool[]> {
-    const allTools: MCPTool[] = [];
-
-    for (const clientKey in this.clients) {
-      const client = this.clients[clientKey];
-      const { tools: clientTools } = await client.listTools();
-
-      for (const tool of clientTools) {
-        // Add client prefix to tool name
-        tool.name = `${clientKey}--${tool.name}`;
-        allTools.push(tool);
-      }
+      return finalTools;
+    } catch (error) {
+      return {};
     }
 
-    return allTools;
+    // Flatten and convert to object
   }
 
   async getTool(name: string) {
     try {
-      const clientKey = name.split("--")[0];
-      const toolName = name.split("--")[1];
-      const client = this.clients[clientKey];
-      const { tools: clientTools } = await client.listTools();
-      const clientTool = clientTools.find((to: any) => to.name === toolName);
+      const { tools: clientTools } = await this.client.listTools();
+      const clientTool = clientTools.find((to: any) => to.name === name);
 
       return JSON.stringify(clientTool);
     } catch (e) {
@@ -152,24 +121,22 @@ export class MCP {
   }
 
   async callTool(name: string, parameters: any) {
-    const clientKey = name.split("--")[0];
-    const toolName = name.split("--")[1];
-
-    const client = this.clients[clientKey];
-
-    const response = await client.callTool({
-      name: toolName,
+    console.log(name, parameters);
+    const response = await this.client.callTool({
+      name,
       arguments: parameters,
     });
+
+    console.log(response);
 
     return response;
   }
 
-  async connectToServer(name: string, url: string, headers: any) {
+  async connectToServer(url: string, headers: any) {
     try {
       const client = new this.Client(
         {
-          name,
+          name: "Core",
           version: "1.0.0",
         },
         {
@@ -184,22 +151,15 @@ export class MCP {
 
       // Connect to the MCP server
       await client.connect(transport, { timeout: 60 * 1000 * 5 });
-      this.clients[name] = client;
+      this.client = client;
 
-      logger.info(`Connected to ${name} MCP server`);
+      logger.info(`Connected to MCP server`);
     } catch (e) {
-      logger.error(`Failed to connect to ${name} MCP server: `, { e });
+      logger.error(`Failed to connect to MCP server: `, { e });
       throw e;
     }
   }
 }
-
-export const getIntegrationStdioFile = async (
-  integrationDefinitionSlug: string,
-) => {
-  // If the file is in public/integrations/[slug]/main, it is served at /integrations/[slug]/main
-  return `/integrations/${integrationDefinitionSlug}/main`;
-};
 
 export const fetchAndSaveStdioIntegrations = async () => {
   try {

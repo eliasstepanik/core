@@ -110,7 +110,7 @@ services:
 
   webapp:
     container_name: trigger-webapp
-    image: ghcr.io/triggerdotdev/trigger.dev@sha256:a19c438f348ac05c939f39ed455ed27b4f189f720b4c9810aef8e71fdc731211
+    image: ghcr.io/triggerdotdev/trigger.dev:v4.0.4
     restart: ${RESTART_POLICY:-unless-stopped}
     logging: *logging-config
     ports:
@@ -245,7 +245,7 @@ services:
   # Worker related
   supervisor:
     container_name: trigger-supervisor
-    image: ghcr.io/triggerdotdev/supervisor:${TRIGGER_IMAGE_TAG:-v4-beta}
+    image: ghcr.io/triggerdotdev/supervisor:v4.0.4
     restart: ${RESTART_POLICY:-unless-stopped}
     logging: *logging-config
     depends_on:

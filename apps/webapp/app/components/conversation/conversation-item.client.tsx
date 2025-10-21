@@ -1,6 +1,6 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 
-import { useEffect } from "react";
+import { useEffect, memo } from "react";
 import { UserTypeEnum } from "@core/types";
 import { type ConversationHistory } from "@core/database";
 import { cn } from "~/lib/utils";
@@ -11,7 +11,7 @@ interface AIConversationItemProps {
   conversationHistory: ConversationHistory;
 }
 
-export const ConversationItem = ({
+const ConversationItemComponent = ({
   conversationHistory,
 }: AIConversationItemProps) => {
   const isUser =
@@ -49,3 +49,12 @@ export const ConversationItem = ({
     </div>
   );
 };
+
+// Memoize to prevent unnecessary re-renders
+export const ConversationItem = memo(ConversationItemComponent, (prevProps, nextProps) => {
+  // Only re-render if the conversation history ID or message changed
+  return (
+    prevProps.conversationHistory.id === nextProps.conversationHistory.id &&
+    prevProps.conversationHistory.message === nextProps.conversationHistory.message
+  );
+});

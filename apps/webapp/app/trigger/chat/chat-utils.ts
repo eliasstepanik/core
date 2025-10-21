@@ -23,7 +23,6 @@ import {
   type TotalCost,
 } from "../utils/types";
 import { flattenObject } from "../utils/utils";
-import { searchMemory, addMemory, searchSpaces } from "./memory-utils";
 
 interface LLMOutputInterface {
   response: AsyncGenerator<
@@ -57,93 +56,7 @@ const progressUpdateTool = tool({
   }),
 });
 
-const searchMemoryTool = tool({
-  description:
-    "Search the user's memory graph for episodes or statements based on a query",
-  parameters: jsonSchema({
-    type: "object",
-    properties: {
-      query: {
-        type: "string",
-        description: "The search query in third person perspective",
-      },
-      validAt: {
-        type: "string",
-        description: "The valid at time in ISO format",
-      },
-      startTime: {
-        type: "string",
-        description: "The start time in ISO format",
-      },
-      endTime: {
-        type: "string",
-        description: "The end time in ISO format",
-      },
-      spaceIds: {
-        type: "array",
-        items: {
-          type: "string",
-          format: "uuid",
-        },
-        description: "Array of strings representing UUIDs of spaces",
-      },
-    },
-    required: ["query"],
-    additionalProperties: false,
-  }),
-});
-
-const addMemoryTool = tool({
-  description: "Add information to the user's memory graph",
-  parameters: jsonSchema({
-    type: "object",
-    properties: {
-      message: {
-        type: "string",
-        description: "The content/text to add to memory",
-      },
-    },
-    required: ["message"],
-    additionalProperties: false,
-  }),
-});
-
-const searchSpacesTool = tool({
-  description: "Get spaces in memory",
-  parameters: jsonSchema({
-    type: "object",
-    properties: {},
-    required: [],
-    additionalProperties: false,
-  }),
-});
-
-const loadMCPTools = tool({
-  description:
-    "Load tools for a specific integration. Call this when you need to use a third-party service.",
-  parameters: jsonSchema({
-    type: "object",
-    properties: {
-      integration: {
-        type: "array",
-        items: {
-          type: "string",
-        },
-        description:
-          'Array of integration names to load (e.g., ["github", "linear", "slack"])',
-      },
-    },
-    required: ["integration"],
-    additionalProperties: false,
-  }),
-});
-
-const internalTools = [
-  "core--progress_update",
-  "core--search_memory",
-  "core--add_memory",
-  "core--load_mcp",
-];
+const internalTools = ["core--progress_update"];
 
 async function addResources(messages: CoreMessage[], resources: Resource[]) {
   const resourcePromises = resources.map(async (resource) => {
@@ -230,7 +143,6 @@ async function makeNextCall(
   TOOLS: ToolSet,
   totalCost: TotalCost,
   guardLoop: number,
-  mcpServers: string[],
 ): Promise<LLMOutputInterface> {
   const { context, history, previousHistory } = executionState;
 
@@ -238,7 +150,6 @@ async function makeNextCall(
     USER_MESSAGE: executionState.query,
     CONTEXT: context,
     USER_MEMORY: executionState.userMemoryContext,
-    AVAILABLE_MCP_TOOLS: mcpServers.join(", "),
   };
 
   let messages: CoreMessage[] = [];
@@ -291,8 +202,6 @@ export async function* run(
   previousHistory: CoreMessage[],
   mcp: MCP,
   stepHistory: HistoryStep[],
-  mcpServers: string[],
-  mcpHeaders: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): AsyncGenerator<AgentMessage, any, any> {
   let guardLoop = 0;
@@ -300,10 +209,6 @@ export async function* run(
   let tools = {
     ...(await mcp.allTools()),
     "core--progress_update": progressUpdateTool,
-    "core--search_memory": searchMemoryTool,
-    "core--add_memory": addMemoryTool,
-    "core--search_spaces": searchSpacesTool,
-    "core--load_mcp": loadMCPTools,
   };
 
   logger.info("Tools have been formed");
@@ -339,7 +244,6 @@ export async function* run(
         tools,
         totalCost,
         guardLoop,
-        mcpServers,
       );
 
       let toolCallInfo;
@@ -424,7 +328,7 @@ export async function* run(
           thought: "",
           skill: "",
           skillId: "",
-          userMessage: "Sol agent error, retrying \n",
+          userMessage: "Core agent error, retrying \n",
           isQuestion: false,
           isFinal: false,
           tokenCount: totalCost,
@@ -541,43 +445,6 @@ export async function* run(
                 stepRecord.userMessage += skillInput.message;
                 yield Message("", AgentMessageType.MESSAGE_END);
                 result = "Progress update sent successfully";
-              } else if (toolName === "search_memory") {
-                try {
-                  result = await searchMemory(skillInput);
-                } catch (apiError) {
-                  logger.error("Memory utils calls failed for search_memory", {
-                    apiError,
-                  });
-                  result =
-                    "Memory search failed - please check your memory configuration";
-                }
-              } else if (toolName === "add_memory") {
-                try {
-                  result = await addMemory(skillInput);
-                } catch (apiError) {
-                  logger.error("Memory utils calls failed for add_memory", {
-                    apiError,
-                  });
-                  result =
-                    "Memory storage failed - please check your memory configuration";
-                }
-              } else if (toolName === "search_spaces") {
-                try {
-                  result = await searchSpaces();
-                } catch (apiError) {
-                  logger.error("Search spaces call failed", {
-                    apiError,
-                  });
-                  result = "Search spaces call failed";
-                }
-              } else if (toolName === "load_mcp") {
-                // Load MCP integration and update available tools
-                await mcp.load(skillInput.integration, mcpHeaders);
-                tools = {
-                  ...tools,
-                  ...(await mcp.allTools()),
-                };
-                result = "MCP integration loaded successfully";
               }
             }
             // Handle other MCP tools

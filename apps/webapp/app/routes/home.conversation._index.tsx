@@ -4,7 +4,7 @@ import {
 } from "@remix-run/server-runtime";
 import { useTypedLoaderData } from "remix-typedjson";
 import { parse } from "@conform-to/zod";
-
+import { redirect, json } from "@remix-run/node";
 import {
   requireUser,
   requireUserId,
@@ -16,7 +16,7 @@ import {
   createConversation,
   CreateConversationSchema,
 } from "~/services/conversation.server";
-import { json } from "@remix-run/node";
+
 import { PageHeader } from "~/components/common/page-header";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -47,17 +47,16 @@ export async function action({ request }: ActionFunctionArgs) {
     conversationId: submission.value.conversationId,
   });
 
-  // Redirect to the conversation page after creation
-  // conversationId may be in different places depending on createConversation logic
+  // If conversationId exists in submission, return the conversation data (don't redirect)
+  if (submission.value.conversationId) {
+    return json({ conversation });
+  }
+
+  // For new conversations (no conversationId), redirect to the conversation page
   const conversationId = conversation?.conversationId;
 
   if (conversationId) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `/home/conversation/${conversationId}`,
-      },
-    });
+    return redirect(`/home/conversation/${conversationId}`);
   }
 
   // fallback: just return the conversation object

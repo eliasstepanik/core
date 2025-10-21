@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLogs } from "~/hooks/use-logs";
 import { LogsFilters } from "~/components/logs/logs-filters";
 import { VirtualLogsList } from "~/components/logs/virtual-logs-list";
@@ -12,11 +12,13 @@ import {
 } from "~/components/ui/resizable";
 import { Outlet, useParams } from "@remix-run/react";
 import { cn } from "~/lib/utils";
+import { OnboardingModal } from "~/components/onboarding";
 
 export default function LogsAll() {
   const [selectedSource, setSelectedSource] = useState<string | undefined>();
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>();
   const [selectedType, setSelectedType] = useState<string | undefined>();
+  const [onboarding, setOnboarding] = useState(false);
 
   const { logId } = useParams();
 
@@ -33,6 +35,12 @@ export default function LogsAll() {
     status: selectedStatus,
     type: selectedType,
   });
+
+  useEffect(() => {
+    if (!isLoading && logs && logs.length === 1) {
+      setOnboarding(true);
+    }
+  }, [logs.length, isLoading]);
 
   return (
     <>
@@ -117,6 +125,16 @@ export default function LogsAll() {
           <Outlet />
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <OnboardingModal
+        isOpen={onboarding}
+        onClose={() => {
+          setOnboarding(false);
+        }}
+        onComplete={() => {
+          setOnboarding(false);
+        }}
+      />
     </>
   );
 }
