@@ -3,6 +3,83 @@ title: "Changelog"
 description: "Product updates and announcements"
 ---
 
+<Update label="October 2025" description="v0.1.24 - v0.1.25">
+
+## 🎯 New Features
+
+**Deep Search**
+
+- Advanced search capability for Browser Extension and Obsidian
+- Surface insights from your memory with greater precision and context
+- Connect related information across different sources more effectively
+
+**Account Management 2.0**
+
+- Once-click full account deletion with complete data cleanup
+- Automatic removal of all data from both **PostgreSQL** and **Neo4j** graph databases
+- Peace of mind with complete data control and privacy management
+
+**Enhanced Onboarding**
+
+- New guided flow for faster setup and first memory ingestion
+- Direct integration setup via **MCP configuration links**
+
+**Session Compaction for Smarter Memory**
+
+- Automatically summarizes long conversations for efficient memory storage
+- Compacted sessions now appear in search with Markdown formatting
+- Improves long-term recall without losing important context
+
+**AWS Bedrock Support**
+
+- Connect your own AWS Bedrock account for AI model access
+- Choose from Claude, Titan, and other AWS models
+- Greater flexibility in model selection and deployment options
+
+## ⚡ Performance & Reliability
+
+**Faster, more stable experience**
+
+- **Improved Search Quality**: Structured, faster, and more relevant results
+- **Optimized Graph Performance**: Reduced iterations for quicker retrieval
+- **Better Memory Recall**: Session compaction models improve long-term context retention
+- **Streamlined Credit Management**: Proper error handling when credits are exhausted
+
+## 🔧 Improvements
+
+- **Spaces**:
+
+  - Option to remove episodes from spaces for better organization
+  - Removed restrictive space description requirements
+  - Queue-based space assignment for improved reliability
+
+- **MCP Tooling**:
+  - Clear error messages when credits run low
+  - Improved tool descriptions for better AI assistant understanding
+  - Resolved profile summary edge cases affecting MCP connections
+
+## 🐛 Fixes
+
+- Fixed API key deletion not working properly
+- Resolved document view breaking in log viewer
+- Fixed semantic search inconsistencies affecting result quality
+- Resolved login attribute conflicts in authentication flow
+- Fixed graph visualization issues in Chrome 140
+- Corrected ingestion queue handling for deleted episodes
+- Fixed MCP tool call failures for (`get_user_profile`)
+- Resolved space description validation blocking space creation
+
+## 🔒 Security & Privacy
+
+**Data protection updates**
+
+- **Complete Account Wipe**: Account deletion now removes all traces from both relational and graph databases
+- **Cascade Delete Logic**: Simplified deletion flows with proper relationship cleanup for users and workspaces
+- **Neo4j Graph Cleanup**: Automated cleanup of knowledge graph nodes when deleting accounts
+- **Proper Resource Cleanup**: Removes all associated API keys, spaces, and episodes
+
+</Update>
+
 <Update label="August 2025" description="v0.1.13 - v0.1.18">
 
 ## 🎯 New Features
