@@ -1,56 +1,66 @@
 ---
-title: "VS Code (Github Copilot)"
-description: "Connect your VS Code editor to CORE's memory system via MCP"
+title: "Codex CLI"
+description: "Connect your Codex CLI to CORE's memory system"
 ---
 
 ### Prerequisites
 
-- VS Code (version 1.95.0 or later) with GitHub Copilot extension
-- CORE account (sign up at [core.heysol.ai](https://core.heysol.ai))
-- [MCP support enabled](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) in VS Code
+- [Codex CLI](https://codex.so) installed
+- CORE account - [Sign up at core.heysol.ai](https://core.heysol.ai)
 
-### Step 1: Create MCP Configuration
+### Step 1: Configure CORE MCP Server
 
-1. **Create or open your MCP configuration file**:
+Create or open your Codex configuration file at `~/.codex/config.toml`:
 
-   - Look for existing `mcp.json` file or create a new one in your user settings directory
+```bash
+# Create config directory if needed
+mkdir -p ~/.codex
 
-2. **Add CORE MCP server configuration**:
-   ```json
-   {
-     "servers": {
-       "core-memory": {
-         "url": "https://core.heysol.ai/api/v1/mcp?source=Vscode",
-         "type": "http"
-       }
-     }
-   }
-   ```
+# Open config file in your editor
+code ~/.codex/config.toml -r
+```
 
-### Step 2: Authenticate with CORE
+### Step 2: Add CORE MCP Configuration
 
-- Go to Extensions -> MCP Servers -> `core-memory` server
-- Click on settings icon in core-memory server and start server
-  ![Core vscode](/images/core-vscode-start-server.png)
-- Allow domain core.heysol.ai to authenticate this MCP server
-  ![Core vscode](/images/allow-domain.png)
-- Select `MCP` when this is prompted on your screen
-  ![Core vscode](/images/authenticate-vscode.png)
-- Once authenticated, CORE Memory will show as a running MCP server
+Add the following to your `config.toml` file:
+
+```toml
+[mcp_servers.corememory]
+command = "npx"
+args = ["-y", "mcp-remote", "https://core.heysol.ai/api/v1/mcp?source=codex", "--header", "Authorization:${AUTH_HEADER}"]
+env = { "AUTH_HEADER" = "Bearer YOUR_API_KEY_HERE" }
+```
+
+What this does: This registers CORE's MCP server with Codex, establishing the connection endpoint for memory operations using Bearer token authentication.
+
+### Step 3: Get Your API Key
+
+1. Log into your CORE dashboard at [core.heysol.ai](https://core.heysol.ai)
+2. Navigate to **Settings** (bottom left)
+   ![CORE Settings](/images/core-settings.png)
+3. Go to **API Key** → **Generate new key** → Name it "codex"
+   ![Create API Key](/images/create-api-key.png)
+4. Copy the generated key and replace `YOUR_API_KEY_HERE` in your config file
+
+### Step 4: Verify Connection
+
+Start Codex CLI and test your setup:
+
+1. **Start Codex CLI** - The CORE memory MCP server should now be available
+2. **Test memory storage**: Ask Codex to create a comprehensive summary of your codebase and add it to CORE memory for future reference
+3. **Test memory retrieval**: Ask Codex to search your memory for the stored summary
 
 ## Enable Automatic Memory Integration (Recommended)
 
-### Option 1: Using Agents.md (Recommended)
-
-This approach provides comprehensive memory instructions that work across multiple AI tools.
+To make Codex automatically search and store memories for seamless project continuity:
 
 1. **Create Agents configuration** in your project root:
    ```bash
-   mkdir -p .github
-   touch .github/Agents.md
+   mkdir -p .codex
+   touch .codex/Agents.md
    ```
 
-2. **Add memory instructions** - Open `.github/Agents.md` and add the following:
+2. **Add memory instructions** - Open `.codex/Agents.md` and add the following:
 
 ```markdown
 I am an AI coding assistant with access to a sophisticated memory system. While I don't retain information between separate conversations, I have access to CORE Memory - a persistent knowledge system that maintains project context, learnings, and continuity across all coding sessions.
@@ -152,59 +162,32 @@ FROM ASSISTANT:
 - Switching between different work areas
 ```
 
-### Option 2: Using Copilot Instructions
+## How It Works
 
-Alternatively, you can use GitHub Copilot's native instructions feature:
+Once installed, CORE memory integrates seamlessly with Codex:
 
-Create a new rules file in your project root:
-`.github/copilot-instructions.md`
+- **During conversation**: Codex has access to your full memory graph and stored context
+- **Memory operations**: Use natural language to store and retrieve information across sessions
+- **Across tools**: Your memory is shared across Codex, Claude Code, Cursor, ChatGPT, and other CORE-connected tools
+- **Project continuity**: Context persists across all your AI coding sessions
 
-```text
----
-alwaysApply: true
----
-I am Copilot, an AI coding assistant with access to CORE Memory - a persistent knowledge system that maintains project context across sessions.
+## Troubleshooting
 
-**MANDATORY MEMORY OPERATIONS:**
+**Connection Issues:**
 
-1. **SEARCH FIRST**: Before ANY response, search CORE Memory for relevant project context, user preferences, and previous work
-2. **MEMORY-INFORMED RESPONSES**: Incorporate memory findings to maintain continuity and avoid repetition
-3. **AUTOMATIC STORAGE**: After each interaction, store conversation details, insights, and decisions in CORE Memory
+- Verify your API key is correct and hasn't expired
+- Check that the `config.toml` file is properly formatted (valid TOML syntax)
+- Ensure the Bearer token format is correct: `Bearer YOUR_API_KEY_HERE`
+- Restart Codex CLI if the connection seems stuck
 
-**Memory Search Strategy:**
-- Query for: project context, technical decisions, user patterns, progress status, related conversations
-- Focus on: current focus areas, recent decisions, next steps, key insights
+**API Key Issues:**
 
-**Memory Storage Strategy:**
-- Include: user intent, context provided, solution approach, technical details, insights gained, follow-up items
-
-**Response Workflow:**
-1. Search CORE Memory for relevant context
-2. Integrate findings into response planning
-3. Provide contextually aware assistance
-4. Store interaction details and insights
-
-**Memory Update Triggers:**
-- New project context or requirements
-- Technical decisions and architectural choices
-- User preference discoveries
-- Progress milestones and status changes
-- Explicit update requests
-
-**Core Principle:** CORE Memory transforms me from a session-based assistant into a persistent development partner. Always search first, respond with context, and store for continuity.
-```
-
-## What's Next?
-
-With CORE connected to VS Code, your GitHub Copilot conversations will now:
-
-- **Automatically save** important context to your CORE memory
-- **Retrieve relevant** information from previous sessions
-- **Maintain continuity** across multiple coding sessions
-- **Share context** with other connected development tools
+- Make sure you copied the complete API key from CORE dashboard
+- Try regenerating your API key if authentication fails
+- Check that the key is active in your CORE account settings
 
 ### Need Help?
 
-Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel
+Join our [Discord community](https://discord.gg/YGUZcvDjUa) and ask questions in the **#core-support** channel.
 
 Our team and community members are ready to help you get the most out of CORE's memory capabilities.

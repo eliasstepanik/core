@@ -290,7 +290,18 @@ Configure Claude Code to automatically search and store memories for seamless pr
    }
    ```
 
-### Troubleshooting
+## How It Works
+
+Once installed, the plugin works automatically:
+
+- **At session start**: Memory search agent retrieves relevant context from your CORE memory
+- **During conversation**: Claude has access to your full memory graph and codebase knowledge
+- **After interaction**: Memory ingest agent stores the conversation summary
+- **Across tools**: Your memory is shared across Claude Code, Cursor, ChatGPT, and other CORE-connected tools
+
+You don’t need to manually trigger memory operations—the plugin handles everything!
+
+## Troubleshooting
 
 **Connection Issues:**
 

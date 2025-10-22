@@ -57,7 +57,8 @@
               {
                 "group": "CLI",
                 "pages": [
-                  "providers/claude-code"
+                  "providers/claude-code",
+                  "providers/codex"
                 ]
               },
               {
