@@ -410,7 +410,7 @@ model PersonalAccessToken {
   /// This is used to find the token in the database
   hashedToken String @unique
 
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   revokedAt      DateTime?
@@ -460,7 +460,7 @@ model RecallLog {
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String?
 
-  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   conversationId String?
 
   // Metadata for additional tracking data
@@ -488,9 +488,9 @@ model Space {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  SpacePattern   SpacePattern[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  SpacePattern SpacePattern[]
 }
 
 model SpacePattern {
@@ -544,7 +544,7 @@ model User {
   metadata Json @default("{}")
 
   personalAccessTokens PersonalAccessToken[]
-  InvitationCode       InvitationCode?        @relation(fields: [invitationCodeId], references: [id])
+  InvitationCode       InvitationCode?        @relation(fields: [invitationCodeId], references: [id], onDelete: Cascade)
   invitationCodeId     String?
   Workspace            Workspace?
   IntegrationAccount   IntegrationAccount[]
@@ -606,10 +606,10 @@ model WebhookConfiguration {
 
 model WebhookDeliveryLog {
   id                     String               @id @default(cuid())
-  webhookConfiguration   WebhookConfiguration @relation(fields: [webhookConfigurationId], references: [id])
+  webhookConfiguration   WebhookConfiguration @relation(fields: [webhookConfigurationId], references: [id], onDelete: Cascade)
   webhookConfigurationId String
 
-  activity   Activity? @relation(fields: [activityId], references: [id])
+  activity   Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
   activityId String?
 
   status             WebhookDeliveryStatus
@@ -680,7 +680,7 @@ model BillingHistory {
   stripePaymentStatus String?
 
   // Relations
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   subscriptionId String
 }
 
