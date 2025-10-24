@@ -2,7 +2,7 @@ import type { EntityNode, StatementNode, EpisodicNode } from "@core/types";
 import type { SearchOptions } from "../search.server";
 import type { Embedding } from "ai";
 import { logger } from "../logger.service";
-import { runQuery } from "~/lib/neo4j.server";
+import { runQuery, cosineSimilarityCypher } from "~/lib/neo4j.server";
 import { getEmbedding } from "~/lib/model.server";
 import { findSimilarEntities } from "../graphModels/entity";
 
@@ -132,13 +132,13 @@ export async function performVectorSearch(
     }
 
     const limit = options.limit || 100;
-    // 1. Search for similar statements using GDS cosine similarity with provenance count
+    // 1. Search for similar statements using native Cypher cosine similarity with provenance count
     const cypher = `
     MATCH (s:Statement)
     WHERE s.userId = $userId
     ${timeframeCondition}
     ${spaceCondition}
-    WITH s, gds.similarity.cosine(s.factEmbedding, $embedding) AS score
+    WITH s, ${cosineSimilarityCypher('s.factEmbedding', '$embedding')} AS score
     WHERE score >= 0.5
     OPTIONAL MATCH (episode:Episode)-[:HAS_PROVENANCE]->(s)
     WITH s, score, count(episode) as provenanceCount
@@ -252,7 +252,7 @@ async function bfsTraversal(
       WHERE e.uuid IN $entityIds
         ${timeframeCondition}
       WITH DISTINCT s  // Deduplicate first
-      WITH s, gds.similarity.cosine(s.factEmbedding, $queryEmbedding) AS relevance
+      WITH s, ${cosineSimilarityCypher('s.factEmbedding', '$queryEmbedding')} AS relevance
       WHERE relevance >= $explorationThreshold
       RETURN s.uuid AS uuid, relevance
       ORDER BY relevance DESC

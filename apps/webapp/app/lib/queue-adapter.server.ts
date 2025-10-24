@@ -178,8 +178,9 @@ export async function enqueueSessionCompaction(
 export async function enqueueSpaceAssignment(payload: {
   userId: string;
   workspaceId: string;
-  mode: "episode";
-  episodeIds: string[];
+  mode: "episode" | "new_space";
+  episodeIds?: string[];
+  newSpaceId?: string;
 }): Promise<void> {
   const provider = env.QUEUE_PROVIDER as QueueProvider;
 
@@ -189,8 +190,11 @@ export async function enqueueSpaceAssignment(payload: {
     );
     await triggerSpaceAssignment(payload);
   } else {
-    // For BullMQ, space assignment is not implemented yet
-    // You can add it later when needed
-    console.warn("Space assignment not implemented for BullMQ yet");
+    // BullMQ
+    const { spaceAssignmentQueue } = await import("~/bullmq/queues");
+    await spaceAssignmentQueue.add("space-assignment", payload, {
+      attempts: 2,
+      backoff: { type: "exponential", delay: 5000 },
+    });
   }
 }

@@ -415,6 +415,26 @@ const initializeSchema = async () => {
   }
 };
 
+/**
+ * Generate Cypher code for calculating cosine similarity between two vectors
+ * This is a workaround for not having the GDS library installed
+ *
+ * @param vec1Name - Name of the first vector property (e.g., 'entity.nameEmbedding')
+ * @param vec2Name - Name of the second vector parameter (e.g., '$queryEmbedding')
+ * @returns Cypher expression that calculates cosine similarity
+ */
+export function cosineSimilarityCypher(vec1Name: string, vec2Name: string): string {
+  return `
+    CASE
+      WHEN size(${vec1Name}) > 0 AND size(${vec2Name}) > 0 THEN
+        reduce(dot = 0.0, i IN range(0, size(${vec1Name})-1) | dot + ${vec1Name}[i] * ${vec2Name}[i]) /
+        (sqrt(reduce(sum = 0.0, i IN range(0, size(${vec1Name})-1) | sum + ${vec1Name}[i] * ${vec1Name}[i])) *
+         sqrt(reduce(sum = 0.0, i IN range(0, size(${vec2Name})-1) | sum + ${vec2Name}[i] * ${vec2Name}[i])))
+      ELSE 0.0
+    END
+  `.trim();
+}
+
 // Close the driver when the application shuts down
 const closeDriver = async () => {
   await driver.close();

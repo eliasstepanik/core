@@ -47,11 +47,13 @@ Environment variables for the CORE webapp container.
 | `OPENAI_API_KEY`                        | No       | —                                              | OpenAI API key for memory processing                                                             |
 | `MODEL`                                 | No       | gpt-4-turbo-2024-04-09                         | Default language model                                                                           |
 | `EMBEDDING_MODEL`                       | No       | text-embedding-3-small                         | Model for text embeddings                                                                        |
+| `EMBEDDING_MODEL_SIZE`                  | No       | 1024                                           | Embedding vector dimensions (1536 for text-embedding-3-small, 1024 for mxbai-embed-large)        |
 | `OLLAMA_URL`                            | No       | http://ollama:11434                            | Ollama server URL for local models                                                               |
 | **Background Jobs - Trigger.dev**       |          |                                                |                                                                                                 |
-| `TRIGGER_PROJECT_ID`                    | Yes      | —                                              | Trigger.dev project identifier                                                                   |
-| `TRIGGER_SECRET_KEY`                    | Yes      | —                                              | Trigger.dev authentication secret                                                                |
-| `TRIGGER_API_URL`                       | Yes      | http://host.docker.internal:8030               | Trigger.dev API endpoint (use localhost:8030 for local, api.trigger.dev for cloud)             |
+| `QUEUE_PROVIDER`                        | No       | bullmq                                         | Queue provider (bullmq or trigger)                                                               |
+| `TRIGGER_PROJECT_ID`                    | No*      | —                                              | Trigger.dev project identifier (*required if QUEUE_PROVIDER is trigger)                          |
+| `TRIGGER_SECRET_KEY`                    | No*      | —                                              | Trigger.dev authentication secret (*required if QUEUE_PROVIDER is trigger)                       |
+| `TRIGGER_API_URL`                       | No*      | http://host.docker.internal:8030               | Trigger.dev API endpoint (*required if QUEUE_PROVIDER is trigger)                                |
 
 
 ## Security Considerations
@@ -86,3 +88,33 @@ When using Docker Compose, service names are used as hostnames:
 - `ollama` for Ollama (if using local models)
 
 For external services (like Trigger.dev), use `host.docker.internal` to access services running on the host machine.
+
+## Neo4j Vector Index Configuration
+
+The `EMBEDDING_MODEL_SIZE` must match the dimension output of your embedding model:
+
+- **text-embedding-3-small** (OpenAI): 1536 dimensions
+- **text-embedding-3-large** (OpenAI): 3072 dimensions
+- **mxbai-embed-large** (Ollama): 1024 dimensions
+
+### Recreating Vector Indexes
+
+If you change embedding models or get dimension mismatch errors, you need to recreate the Neo4j vector indexes:
+
+```bash
+# Connect to Neo4j Browser at http://localhost:7474
+# Or use cypher-shell in the Neo4j container
+
+# Drop existing vector indexes
+DROP INDEX entity_embedding IF EXISTS;
+DROP INDEX statement_embedding IF EXISTS;
+DROP INDEX episode_embedding IF EXISTS;
+
+# Restart your application - indexes will be recreated with correct dimensions
+# The application automatically creates indexes on startup
+```
+
+**Important:** Changing `EMBEDDING_MODEL_SIZE` after data exists requires:
+1. Dropping the old vector indexes
+2. Re-embedding all existing entities, statements, and episodes
+3. The application will recreate indexes on next startup

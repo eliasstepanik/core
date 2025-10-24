@@ -1,4 +1,4 @@
-import { runQuery } from "~/lib/neo4j.server";
+import { runQuery, cosineSimilarityCypher } from "~/lib/neo4j.server";
 
 export interface SessionEpisodeData {
   uuid: string;
@@ -169,7 +169,7 @@ export async function searchCompactedSessionsByEmbedding(
     MATCH (cs:CompactedSession {userId: $userId})
     WHERE cs.summaryEmbedding IS NOT NULL
     WITH cs,
-         gds.similarity.cosine(cs.summaryEmbedding, $embedding) AS score
+         ${cosineSimilarityCypher('cs.summaryEmbedding', '$embedding')} AS score
     WHERE score >= $minScore
     RETURN cs, score
     ORDER BY score DESC

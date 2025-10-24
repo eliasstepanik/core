@@ -79,9 +79,9 @@ const EnvironmentSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
 
   //Trigger
-  TRIGGER_PROJECT_ID: z.string(),
-  TRIGGER_SECRET_KEY: z.string(),
-  TRIGGER_API_URL: z.string(),
+  TRIGGER_PROJECT_ID: z.string().optional(),
+  TRIGGER_SECRET_KEY: z.string().optional(),
+  TRIGGER_API_URL: z.string().optional(),
   TRIGGER_DB: z.string().default("trigger"),
 
   // Model envs
@@ -97,7 +97,7 @@ const EnvironmentSchema = z.object({
   AWS_REGION: z.string().optional(),
 
   // Queue provider
-  QUEUE_PROVIDER: z.enum(["trigger", "bullmq"]).default("trigger"),
+  QUEUE_PROVIDER: z.enum(["trigger", "bullmq"]).default("bullmq"),
 });
 
 export type Environment = z.infer<typeof EnvironmentSchema>;

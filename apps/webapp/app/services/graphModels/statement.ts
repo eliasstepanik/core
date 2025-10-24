@@ -214,12 +214,11 @@ export async function findSimilarStatements({
   const limit = 100;
   const query = `
       CALL db.index.vector.queryNodes('statement_embedding', ${limit*2}, $factEmbedding)
-      YIELD node AS statement
+      YIELD node AS statement, score
       WHERE statement.userId = $userId
         AND statement.invalidAt IS NULL
+        AND score >= $threshold
         ${excludeIds.length > 0 ? "AND NOT statement.uuid IN $excludeIds" : ""}
-      WITH statement, gds.similarity.cosine(statement.factEmbedding, $factEmbedding) AS score
-      WHERE score >= $threshold
       RETURN statement, score
       ORDER BY score DESC
       LIMIT ${limit}
@@ -415,11 +414,10 @@ export async function searchStatementsByEmbedding(params: {
   const limit = params.limit || 100;
   const query = `
   CALL db.index.vector.queryNodes('statement_embedding', ${limit*2}, $embedding)
-  YIELD node AS statement
+  YIELD node AS statement, score
   WHERE statement.userId = $userId
     AND statement.invalidAt IS NULL
-  WITH statement, gds.similarity.cosine(statement.factEmbedding, $embedding) AS score
-  WHERE score >= $minSimilarity
+    AND score >= $minSimilarity
   RETURN statement, score
   ORDER BY score DESC
   LIMIT ${limit}

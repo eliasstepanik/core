@@ -147,10 +147,8 @@ export async function searchEpisodesByEmbedding(params: {
   const limit = params.limit || 100;
   const query = `
   CALL db.index.vector.queryNodes('episode_embedding', ${limit * 2}, $embedding)
-  YIELD node AS episode
-  WHERE episode.userId = $userId
-  WITH episode, gds.similarity.cosine(episode.contentEmbedding, $embedding) AS score
-  WHERE score >= $minSimilarity
+  YIELD node AS episode, score
+  WHERE episode.userId = $userId AND score >= $minSimilarity
   RETURN episode, score
   ORDER BY score DESC
   LIMIT ${limit}`;
@@ -292,10 +290,8 @@ export async function getRelatedEpisodesEntities(params: {
   const limit = params.limit || 100;
   const query = `
   CALL db.index.vector.queryNodes('episode_embedding', ${limit * 2}, $embedding)
-  YIELD node AS episode
-  WHERE episode.userId = $userId
-  WITH episode, gds.similarity.cosine(episode.contentEmbedding, $embedding) AS score
-  WHERE score >= $minSimilarity
+  YIELD node AS episode, score
+  WHERE episode.userId = $userId AND score >= $minSimilarity
   OPTIONAL MATCH (episode)-[:HAS_PROVENANCE]->(stmt:Statement)-[:HAS_SUBJECT|HAS_OBJECT]->(entity:Entity)
   WHERE entity IS NOT NULL
   RETURN DISTINCT entity

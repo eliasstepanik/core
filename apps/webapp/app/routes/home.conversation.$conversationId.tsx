@@ -48,7 +48,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
   const run = await getCurrentConversationRun(conversation.id, workspace.id);
 
-  return { conversation, run, apiURL: env.TRIGGER_API_URL };
+  return { conversation, run, apiURL: env.TRIGGER_API_URL ?? undefined };
 }
 
 // Example action accessing params

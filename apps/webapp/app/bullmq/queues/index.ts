@@ -113,3 +113,25 @@ export const sessionCompactionQueue = new Queue("session-compaction-queue", {
     },
   },
 });
+
+/**
+ * Space assignment queue
+ * Handles assigning episodes to relevant spaces using AI
+ */
+export const spaceAssignmentQueue = new Queue("space-assignment-queue", {
+  connection: getRedisConnection(),
+  defaultJobOptions: {
+    attempts: 2, // Only retry once for space assignments
+    backoff: {
+      type: "exponential",
+      delay: 5000,
+    },
+    removeOnComplete: {
+      age: 3600,
+      count: 1000,
+    },
+    removeOnFail: {
+      age: 86400,
+    },
+  },
+});

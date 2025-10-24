@@ -27,6 +27,10 @@ import {
   type SessionCompactionPayload,
 } from "~/jobs/session/session-compaction.logic";
 import {
+  processSpaceAssignment,
+  type SpaceAssignmentPayload,
+} from "~/jobs/spaces/space-assignment.logic";
+import {
   enqueueIngestEpisode,
   enqueueSpaceAssignment,
   enqueueSessionCompaction,
@@ -167,6 +171,37 @@ sessionCompactionWorker.on("failed", (job, error) => {
 });
 
 /**
+ * Space assignment worker
+ * Assigns episodes to relevant spaces using AI
+ */
+export const spaceAssignmentWorker = new Worker(
+  "space-assignment-queue",
+  async (job) => {
+    const payload = job.data as SpaceAssignmentPayload;
+
+    // TODO: Add enqueue callbacks for space summary and space pattern
+    // For now, these are optional and space assignment will work without them
+    return await processSpaceAssignment(
+      payload,
+      undefined, // enqueueSpaceSummary - to be implemented
+      undefined, // enqueueSpacePattern - to be implemented
+    );
+  },
+  {
+    connection: getRedisConnection(),
+    concurrency: 2, // Process up to 2 space assignments in parallel
+  },
+);
+
+spaceAssignmentWorker.on("completed", (job) => {
+  logger.log(`Space assignment job ${job.id} completed`);
+});
+
+spaceAssignmentWorker.on("failed", (job, error) => {
+  logger.error(`Space assignment job ${job?.id} failed: ${error}`);
+});
+
+/**
  * Graceful shutdown handler
  */
 export async function closeAllWorkers(): Promise<void> {
@@ -176,6 +211,7 @@ export async function closeAllWorkers(): Promise<void> {
     conversationTitleWorker.close(),
     deepSearchWorker.close(),
     sessionCompactionWorker.close(),
+    spaceAssignmentWorker.close(),
   ]);
   logger.log("All BullMQ workers closed");
 }

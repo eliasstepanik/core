@@ -16,32 +16,31 @@ export async function initializeStartupServices() {
     return;
   }
 
-  // Wait for TRIGGER_API_URL/login to be available, up to 1 minute
-  async function waitForTriggerLogin(
-    url: string,
-    timeoutMs = 60000,
-    intervalMs = 2000,
-  ) {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      try {
-        const res = await fetch(`${url}/login`, { method: "GET" });
-        if (res.ok) {
-          return;
-        }
-      } catch (e) {
-        // ignore, will retry
-      }
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-    // If we get here, the service is still not available
-    console.error(
-      `${url}/login is not available after ${timeoutMs / 1000} seconds. Exiting process.`,
-    );
-    process.exit(1);
-  }
-
   if (env.QUEUE_PROVIDER === "trigger") {
+    async function waitForTriggerLogin(
+      url: string,
+      timeoutMs = 60000,
+      intervalMs = 2000,
+    ) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        try {
+          const res = await fetch(`${url}/login`, { method: "GET" });
+          if (res.ok) {
+            return;
+          }
+        } catch (e) {
+          // ignore, will retry
+        }
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+      // If we get here, the service is still not available
+      console.error(
+        `${url}/login is not available after ${timeoutMs / 1000} seconds. Exiting process.`,
+      );
+      process.exit(1);
+    }
+
     try {
       const triggerApiUrl = env.TRIGGER_API_URL;
       if (triggerApiUrl) {
@@ -143,6 +142,10 @@ export async function addEnvVariablesInTrigger() {
     OPENAI_API_KEY: OPENAI_API_KEY ?? "",
   };
 
+  if (!TRIGGER_API_URL || !TRIGGER_PROJECT_ID || !TRIGGER_SECRET_KEY) {
+    throw new Error("Trigger environment variables are not set");
+  }
+
   const envName = env.NODE_ENV === "production" ? "prod" : "dev";
   const apiBase = `${TRIGGER_API_URL}/api/v1`;
   const envVarsUrl = `${apiBase}/projects/${TRIGGER_PROJECT_ID}/envvars/${envName}`;
@@ -237,3 +240,4 @@ export async function addEnvVariablesInTrigger() {
     throw err;
   }
 }
+

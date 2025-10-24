@@ -79,10 +79,8 @@ export async function findSimilarEntities(params: {
   const limit = params.limit || 5;
   const query = `
           CALL db.index.vector.queryNodes('entity_embedding', ${limit*2}, $queryEmbedding)
-          YIELD node AS entity
-          WHERE entity.userId = $userId
-          WITH entity, gds.similarity.cosine(entity.nameEmbedding, $queryEmbedding) AS score
-          WHERE score >= $threshold
+          YIELD node AS entity, score
+          WHERE entity.userId = $userId AND score >= $threshold
           RETURN entity, score
           ORDER BY score DESC
           LIMIT ${limit}
@@ -116,11 +114,10 @@ export async function findSimilarEntitiesWithSameType(params: {
   const limit = params.limit || 5;
   const query = `
           CALL db.index.vector.queryNodes('entity_embedding', ${limit*2}, $queryEmbedding)
-          YIELD node AS entity
+          YIELD node AS entity, score
           WHERE entity.userId = $userId
           AND entity.type = $entityType
-          WITH entity, gds.similarity.cosine(entity.nameEmbedding, $queryEmbedding) AS score
-          WHERE score >= $threshold
+          AND score >= $threshold
           RETURN entity, score
           ORDER BY score DESC
           LIMIT ${limit}
