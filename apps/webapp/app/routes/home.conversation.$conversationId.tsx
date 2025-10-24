@@ -110,7 +110,7 @@ export default function SingleConversation() {
     }
   }, [run]);
 
-  const getConversations = () => {
+  const conversations = React.useMemo(() => {
     const lastConversationHistoryId =
       conversationResponse?.conversationHistoryId;
 
@@ -124,15 +124,17 @@ export default function SingleConversation() {
     );
 
     // Filter out any conversation history items that come after the lastConversationHistoryId
-    const filteredConversationHistory = lastConversationHistoryId
+    return lastConversationHistoryId
       ? sortedConversationHistory.filter((_ch, currentIndex: number) => {
           return currentIndex <= lastIndex;
         })
       : sortedConversationHistory;
+  }, [conversationResponse, conversationHistory]);
 
+  const getConversations = () => {
     return (
       <>
-        {filteredConversationHistory.map((ch: ConversationHistory) => {
+        {conversations.map((ch: ConversationHistory) => {
           return <ConversationItem key={ch.id} conversationHistory={ch} />;
         })}
       </>

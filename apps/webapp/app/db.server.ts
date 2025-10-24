@@ -2,11 +2,8 @@ import { Prisma, PrismaClient } from "@core/database";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { env } from "./env.server";
-import { logger } from "./services/logger.service";
 import { isValidDatabaseUrl } from "./utils/db";
 import { singleton } from "./utils/singleton";
-
-import { type Span } from "@opentelemetry/api";
 
 export { Prisma };
 

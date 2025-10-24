@@ -284,33 +284,37 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
       // More nodes = need more space to prevent overcrowding
       let scalingRatio: number;
       if (nodeCount < 10) {
-        scalingRatio = 15; // Tight for small graphs
+        scalingRatio = 20; // Slightly wider for small graphs
       } else if (nodeCount < 50) {
-        scalingRatio = 20 + (nodeCount - 10) * 0.5; // Gradual increase
+        scalingRatio = 30 + (nodeCount - 10) * 1.0; // Faster increase
       } else if (nodeCount < 200) {
-        scalingRatio = 40 + (nodeCount - 50) * 0.2; // Slower increase
+        scalingRatio = 70 + (nodeCount - 50) * 0.5; // More spread
+      } else if (nodeCount < 500) {
+        scalingRatio = 145 + (nodeCount - 200) * 0.3; // Continue spreading
       } else {
-        scalingRatio = Math.min(80, 70 + (nodeCount - 200) * 0.05); // Cap at 80
+        scalingRatio = Math.min(300, 235 + (nodeCount - 500) * 0.1); // Cap at 300
       }
 
       // Calculate optimal gravity based on density and node count
       let gravity: number;
       if (density > 0.3) {
         // Dense graphs need less gravity to prevent overcrowding
-        gravity = 1 + density * 2;
+        gravity = 0.5 + density * 1.5;
       } else if (density > 0.1) {
         // Medium density graphs
-        gravity = 3 + density * 5;
+        gravity = 2 + density * 3;
       } else {
         // Sparse graphs need more gravity to keep components together
-        gravity = Math.min(8, 5 + (1 - density) * 3);
+        gravity = Math.min(6, 4 + (1 - density) * 2);
       }
 
-      // Adjust gravity based on node count
+      // Adjust gravity based on node count - more aggressive reduction for large graphs
       if (nodeCount < 20) {
         gravity *= 1.5; // Smaller graphs benefit from stronger gravity
       } else if (nodeCount > 100) {
-        gravity *= 0.8; // Larger graphs need gentler gravity
+        gravity *= 0.5; // Larger graphs need much gentler gravity
+      } else if (nodeCount > 200) {
+        gravity *= 0.3; // Very large graphs need very gentle gravity
       }
 
       // Calculate iterations based on complexity
@@ -374,10 +378,10 @@ export const Graph = forwardRef<GraphRef, GraphProps>(
           settings: {
             ...settings,
             barnesHutOptimize: true,
-            strongGravityMode: true,
+            strongGravityMode: false, // Disable strong gravity for more spread
             gravity: optimalParams.gravity,
             scalingRatio: optimalParams.scalingRatio,
-            slowDown: 3,
+            slowDown: 1.5, // Reduced slowDown for better spreading
           },
         });
 

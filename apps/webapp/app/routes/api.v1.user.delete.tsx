@@ -1,5 +1,4 @@
-import { json, type ActionFunctionArgs } from "@remix-run/node";
-import { requireUser } from "~/services/session.server";
+import { json } from "@remix-run/node";
 import { deleteUser, getUserById } from "~/models/user.server";
 import { sessionStorage } from "~/services/sessionStorage.server";
 import { cancelSubscriptionImmediately } from "~/services/stripe.server";

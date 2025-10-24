@@ -153,7 +153,11 @@ export const ingestTask = task({
       // Handle space assignment after successful ingestion
       try {
         // If spaceIds were explicitly provided, immediately assign the episode to those spaces
-        if (episodeBody.spaceIds && episodeBody.spaceIds.length > 0 && episodeDetails.episodeUuid) {
+        if (
+          episodeBody.spaceIds &&
+          episodeBody.spaceIds.length > 0 &&
+          episodeDetails.episodeUuid
+        ) {
           logger.info(`Assigning episode to explicitly provided spaces`, {
             userId: payload.userId,
             episodeId: episodeDetails.episodeUuid,
@@ -205,7 +209,10 @@ export const ingestTask = task({
 
       // Auto-trigger session compaction if episode has sessionId
       try {
-        if (episodeBody.sessionId && currentStatus === IngestionStatus.COMPLETED) {
+        if (
+          episodeBody.sessionId &&
+          currentStatus === IngestionStatus.COMPLETED
+        ) {
           logger.info(`Checking if session compaction should be triggered`, {
             userId: payload.userId,
             sessionId: episodeBody.sessionId,

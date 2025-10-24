@@ -113,17 +113,25 @@ export const getClusteredGraphData = async (userId: string) => {
   const session = driver.session();
   try {
     // Get the simplified graph structure: Episode, Subject, Object with Predicate as edge
+    // Only include entities that are connected to more than 1 episode
     const result = await session.run(
-      `// Get all statements with their episode and entity connections
-       MATCH (e:Episode)-[:HAS_PROVENANCE]->(s:Statement)
-       WHERE s.userId = $userId
+      `// Find entities connected to more than 1 episode
+       MATCH (e:Episode)-[:HAS_PROVENANCE]->(s:Statement {userId: $userId})
+       MATCH (s)-[:HAS_SUBJECT|HAS_OBJECT|HAS_PREDICATE]->(ent:Entity)
+       WITH ent, count(DISTINCT e) as episodeCount
+       WHERE episodeCount > 1
+       WITH collect(ent.uuid) as validEntityUuids
 
-       // Get subject and object entities
+       // Get statements where all entities are in the valid set
+       MATCH (e:Episode)-[:HAS_PROVENANCE]->(s:Statement {userId: $userId})
        MATCH (s)-[:HAS_SUBJECT]->(subj:Entity)
+       WHERE subj.uuid IN validEntityUuids
        MATCH (s)-[:HAS_PREDICATE]->(pred:Entity)
+       WHERE pred.uuid IN validEntityUuids
        MATCH (s)-[:HAS_OBJECT]->(obj:Entity)
+       WHERE obj.uuid IN validEntityUuids
 
-       // Return Episode, Subject, and Object as nodes with Predicate as edge label
+       // Build relationships
        WITH e, s, subj, pred, obj
        UNWIND [
          // Episode -> Subject

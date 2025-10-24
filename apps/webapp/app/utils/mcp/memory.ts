@@ -442,7 +442,7 @@ async function handleGetSpace(args: any) {
     const spaceDetails = {
       id: space.id,
       name: space.name,
-      summary: space.summary,
+      description: space.description,
     };
 
     return {

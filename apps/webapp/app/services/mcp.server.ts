@@ -266,7 +266,7 @@ export const handleSessionRequest = async (
 
       await transport.handleRequest(req, res);
     } else {
-      res.status(400).send("Invalid or missing session ID");
+      res.status(401).send("Invalid or missing session ID");
       return;
     }
   } else {
