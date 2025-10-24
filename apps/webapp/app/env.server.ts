@@ -95,6 +95,9 @@ const EnvironmentSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
+
+  // Queue provider
+  QUEUE_PROVIDER: z.enum(["trigger", "bullmq"]).default("trigger"),
 });
 
 export type Environment = z.infer<typeof EnvironmentSchema>;

@@ -2,7 +2,7 @@ import { UserTypeEnum } from "@core/types";
 
 import { auth, runs, tasks } from "@trigger.dev/sdk/v3";
 import { prisma } from "~/db.server";
-import { createConversationTitle } from "~/trigger/conversation/create-conversation-title";
+import { enqueueCreateConversationTitle } from "~/lib/queue-adapter.server";
 
 import { z } from "zod";
 import { type ConversationHistory } from "@prisma/client";
@@ -87,14 +87,10 @@ export async function createConversation(
   const context = await getConversationContext(conversationHistory.id);
 
   // Trigger conversation title task
-  await tasks.trigger<typeof createConversationTitle>(
-    createConversationTitle.id,
-    {
-      conversationId: conversation.id,
-      message: conversationData.message,
-    },
-    { tags: [conversation.id, workspaceId] },
-  );
+  await enqueueCreateConversationTitle({
+    conversationId: conversation.id,
+    message: conversationData.message,
+  });
 
   const handler = await tasks.trigger(
     "chat",

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { json } from "@remix-run/node";
 import { createActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
-import { deepSearch } from "~/trigger/deep-search";
+import { enqueueDeepSearch } from "~/lib/queue-adapter.server";
 import { runs } from "@trigger.dev/sdk";
 
 const DeepSearchBodySchema = z.object({
@@ -30,7 +30,7 @@ const { action, loader } = createActionApiRoute(
   async ({ body, authentication }) => {
     let trigger;
     if (!body.stream) {
-      trigger = await deepSearch.trigger({
+      trigger = await enqueueDeepSearch({
         content: body.content,
         userId: authentication.userId,
         stream: body.stream,
@@ -40,7 +40,7 @@ const { action, loader } = createActionApiRoute(
 
       return json(trigger);
     } else {
-      const runHandler = await deepSearch.trigger({
+      const runHandler = await enqueueDeepSearch({
         content: body.content,
         userId: authentication.userId,
         stream: body.stream,

@@ -2,6 +2,7 @@ import { logger } from "~/services/logger.service";
 import { fetchAndSaveStdioIntegrations } from "~/trigger/utils/mcp";
 import { initNeo4jSchemaOnce } from "~/lib/neo4j.server";
 import { env } from "~/env.server";
+import { startWorkers } from "~/bullmq/start-workers";
 
 // Global flag to ensure startup only runs once per server process
 let startupInitialized = false;
@@ -40,19 +41,23 @@ export async function initializeStartupServices() {
     process.exit(1);
   }
 
-  try {
-    const triggerApiUrl = env.TRIGGER_API_URL;
-    if (triggerApiUrl) {
-      await waitForTriggerLogin(triggerApiUrl);
-      await addEnvVariablesInTrigger();
-    } else {
-      console.error("TRIGGER_API_URL is not set in environment variables.");
+  if (env.QUEUE_PROVIDER === "trigger") {
+    try {
+      const triggerApiUrl = env.TRIGGER_API_URL;
+      if (triggerApiUrl) {
+        await waitForTriggerLogin(triggerApiUrl);
+        await addEnvVariablesInTrigger();
+      } else {
+        console.error("TRIGGER_API_URL is not set in environment variables.");
+        process.exit(1);
+      }
+    } catch (e) {
+      console.error(e);
+      console.error("Trigger is not configured");
       process.exit(1);
     }
-  } catch (e) {
-    console.error(e);
-    console.error("Trigger is not configured");
-    process.exit(1);
+  } else {
+    await startWorkers();
   }
 
   try {
